@@ -7,9 +7,11 @@ import {
   CheckCircle2,
   Loader2,
   TriangleAlert,
+  Lock,
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
+import { useSession } from "next-auth/react";
 
 /* -------------------------------------------------------------------------- */
 /* Types (learner side simplified)                                            */
@@ -148,7 +150,6 @@ function renderJSON(
       }
       case "text": {
         let text = node.text ?? "";
-        // Detect raw iframe HTML (inserted directly by editor.insertContent)
         if (text.includes("<iframe") && text.includes("</iframe>")) {
           out.push(
             <div
@@ -159,7 +160,6 @@ function renderJSON(
           );
           break;
         }
-        // Detect a bare YouTube URL (entire text node) and render iframe
         const ytMatch = text
           .trim()
           .match(
@@ -231,6 +231,9 @@ function renderJSON(
 export default function LearnPage() {
   const search = useSearchParams();
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAuthed = !!session?.user;
+  const [lockedAttempt, setLockedAttempt] = useState<LessonRecord | null>(null);
   const courseSlug = search.get("course")?.trim() || "";
 
   const courseQuery = api.course.bySlug.useQuery(
@@ -240,7 +243,6 @@ export default function LearnPage() {
 
   const course: CourseRecord | undefined = courseQuery.data as any;
 
-  // Filter to published + order
   const lessons = useMemo<LessonRecord[]>(() => {
     if (!course) return [];
     return [...course.lessons]
@@ -255,15 +257,12 @@ export default function LearnPage() {
       setActiveId(null);
       return;
     }
-    // If current active removed or not set pick first
     if (!activeId || !lessons.find((l) => l.id === activeId)) {
       setActiveId(lessons[0]!.id);
     }
   }, [lessons, activeId]);
 
   const active = lessons.find((l) => l.id === activeId) || null;
-
-  /* ------------------------------- UI States ------------------------------- */
 
   if (!courseSlug) {
     return (
@@ -305,11 +304,8 @@ export default function LearnPage() {
     );
   }
 
-  /* ------------------------------- Rendering ------------------------------- */
-
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      {/* Sidebar */}
       <aside className="bg-muted/30 w-full border-b p-4 md:w-72 md:border-r md:border-b-0">
         <div className="mb-4">
           <h2 className="text-muted-foreground text-sm font-medium tracking-wide">
@@ -323,15 +319,27 @@ export default function LearnPage() {
           {lessons.map((lesson, idx) => {
             const isActive = lesson.id === activeId;
             const isVideo = lesson.kind === "VIDEO" || !!lesson.youtubeId;
+            const locked = !isAuthed && idx > 0;
             return (
               <button
                 key={lesson.id}
-                onClick={() => setActiveId(lesson.id)}
+                onClick={() => {
+                  if (locked) {
+                    setLockedAttempt(lesson);
+                    // Always jump back to the first lesson so preview remains accessible.
+                    setActiveId(lessons[0]?.id ?? null);
+                    return;
+                  }
+                  setLockedAttempt(null);
+                  setActiveId(lesson.id);
+                }}
                 className={
                   "group flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left text-[13px] transition " +
                   (isActive
                     ? "border-primary bg-primary/10 text-primary"
-                    : "bg-background hover:border-accent hover:bg-accent border-transparent")
+                    : locked
+                      ? "bg-background/60 border-border/40 text-foreground/70 hover:bg-accent/40 border-dashed"
+                      : "bg-background hover:border-accent hover:bg-accent border-transparent")
                 }
               >
                 <span className="text-muted-foreground mt-0.5 text-[10px] font-semibold">
@@ -340,10 +348,18 @@ export default function LearnPage() {
                 <span className="flex-1 leading-snug">
                   {lesson.title || "Untitled"}
                   <span className="text-muted-foreground/70 block text-[9px] tracking-wide uppercase">
-                    {isVideo ? "Video" : "Lesson"}
+                    {locked ? "Login required" : isVideo ? "Video" : "Lesson"}
                   </span>
                 </span>
-                {isVideo ? (
+                {locked ? (
+                  <Lock
+                    size={16}
+                    className={
+                      "mt-0.5 opacity-70 group-hover:opacity-100 " +
+                      (isActive ? "text-primary" : "text-muted-foreground")
+                    }
+                  />
+                ) : isVideo ? (
                   <PlayCircle
                     size={16}
                     className={
@@ -375,10 +391,57 @@ export default function LearnPage() {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-3xl space-y-6">
-          {active ? (
+          {lockedAttempt ? (
+            <div className="mx-auto flex min-h-[40vh] max-w-md flex-col items-center justify-center gap-5 text-center">
+              <Lock className="text-muted-foreground h-10 w-10" />
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold tracking-tight">
+                  Sign in to continue
+                </h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  You need to be signed in to access the rest of this free
+                  course. Create a free account or sign in to unlock all
+                  lessons.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/signup?callbackUrl=" +
+                        encodeURIComponent(
+                          window.location.pathname + window.location.search,
+                        ),
+                    )
+                  }
+                  className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
+                >
+                  Create free account
+                </button>
+                <button
+                  onClick={() =>
+                    router.push(
+                      "/signin?callbackUrl=" +
+                        encodeURIComponent(
+                          window.location.pathname + window.location.search,
+                        ),
+                    )
+                  }
+                  className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
+                >
+                  Sign in
+                </button>
+                <button
+                  onClick={() => setLockedAttempt(null)}
+                  className="text-muted-foreground text-xs underline-offset-4 hover:underline"
+                >
+                  Back to first lesson
+                </button>
+              </div>
+            </div>
+          ) : active ? (
             <>
               <div className="flex flex-col gap-2">
                 <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-3xl">
@@ -390,7 +453,6 @@ export default function LearnPage() {
                 </div>
               </div>
 
-              {/* Dedicated video (legacy) */}
               {active.youtubeId && (
                 <div className="aspect-video w-full overflow-hidden rounded-lg border bg-black/50 shadow">
                   <iframe
@@ -404,7 +466,6 @@ export default function LearnPage() {
                 </div>
               )}
 
-              {/* Rich content (with inline YouTube nodes) */}
               <article className="prose dark:prose-invert max-w-none">
                 {active.contentJson
                   ? (() => {

@@ -121,11 +121,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             <span className="text-foreground/80">{loadingText}</span>
           </span>
         )}
-        <span
-          className={cn("inline-flex items-center", isLoading && "opacity-0")}
-        >
-          {children}
-        </span>
+        <>{children}</>
       </button>
     );
   },
