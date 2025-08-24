@@ -4,11 +4,12 @@ import { db } from "~/server/db";
 import { isAdminEmail } from "~/server/auth/utils/is-admin";
 import { CourseManagerClient } from "./_components/CourseManagerClient";
 
-interface PageProps {
+// No custom PageProps needed!
+export default async function CourseDashboardPage({
+  params,
+}: {
   params: { slug: string };
-}
-
-export default async function CourseDashboardPage(props: PageProps) {
+}) {
   const session = await auth();
   if (!session?.user) {
     redirect("/signin");
@@ -17,7 +18,7 @@ export default async function CourseDashboardPage(props: PageProps) {
     redirect("/");
   }
 
-  const slug = props.params.slug;
+  const slug = params.slug;
 
   const course = await db.course.findUnique({
     where: { slug },

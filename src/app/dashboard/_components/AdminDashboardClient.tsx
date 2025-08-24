@@ -42,6 +42,12 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
     },
   });
 
+  const deleteCourse = api.course.deleteCourse.useMutation({
+    onSuccess: () => {
+      void utils.course.list.invalidate();
+    },
+  });
+
   const [form, setForm] = React.useState({
     title: "",
     slug: "",
@@ -78,7 +84,7 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
         </div>
         <Link
           href="/"
-          className="text-sm underline underline-offset-4 hover:text-foreground"
+          className="hover:text-foreground text-sm underline underline-offset-4"
         >
           Home
         </Link>
@@ -159,11 +165,9 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
 
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Existing Courses</h2>
-            {coursesQuery.isLoading && (
-              <p className="text-muted-foreground text-sm">
-                Loading courses...
-              </p>
-            )}
+          {coursesQuery.isLoading && (
+            <p className="text-muted-foreground text-sm">Loading courses...</p>
+          )}
           <ul className="space-y-3">
             {coursesQuery.data?.map((c) => (
               <li
@@ -192,6 +196,28 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
                     >
                       Manage
                     </Link>
+                    <button
+                      onClick={() => {
+                        if (deleteCourse.status === "pending") return;
+                        if (
+                          confirm(
+                            "Delete this course? This will remove all its lessons.",
+                          )
+                        ) {
+                          deleteCourse.mutate({ id: c.id });
+                        }
+                      }}
+                      disabled={
+                        deleteCourse.status === "pending" &&
+                        (deleteCourse.variables as any)?.id === c.id
+                      }
+                      className="hover:bg-destructive/10 text-destructive border-destructive/60 rounded-md border px-2 py-1 text-xs disabled:opacity-50"
+                    >
+                      {deleteCourse.status === "pending" &&
+                      (deleteCourse.variables as any)?.id === c.id
+                        ? "Deleting..."
+                        : "Delete"}
+                    </button>
                   </div>
                 </div>
               </li>

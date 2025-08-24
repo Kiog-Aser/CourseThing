@@ -13,8 +13,8 @@ const courseBase = z.object({
   slug: z
     .string()
     .regex(/^[a-z0-9-]+$/)
-  // Allow 2+ to stay consistent with lesson slug rule and current UI inputs
-  .min(2),
+    // Allow 2+ to stay consistent with lesson slug rule and current UI inputs
+    .min(2),
   language: z.string().min(2),
 });
 
@@ -94,11 +94,14 @@ export const courseRouter = createTRPCRouter({
         });
       } catch (err) {
         const msg = (err as Error)?.message || "";
-  // Handle legacy database missing the language column. Different providers /
-  // Prisma versions produce slightly different error messages, so we
-  // check a few substrings instead of only one.
-  const missingLanguage = /Course\.language|`language` does not exist|Unknown column 'language'/i.test(msg);
-  if (missingLanguage) {
+        // Handle legacy database missing the language column. Different providers /
+        // Prisma versions produce slightly different error messages, so we
+        // check a few substrings instead of only one.
+        const missingLanguage =
+          /Course\.language|`language` does not exist|Unknown column 'language'/i.test(
+            msg,
+          );
+        if (missingLanguage) {
           // Fallback: older DB without language column
           const created = await ctx.db.course.create({
             data: {
@@ -130,8 +133,11 @@ export const courseRouter = createTRPCRouter({
         });
       } catch (err) {
         const msg = (err as Error)?.message || "";
-  const missingLanguage = /Course\.language|`language` does not exist|Unknown column 'language'/i.test(msg);
-  if (missingLanguage) {
+        const missingLanguage =
+          /Course\.language|`language` does not exist|Unknown column 'language'/i.test(
+            msg,
+          );
+        if (missingLanguage) {
           // Fallback: update without language column present
           const updated = await ctx.db.course.update({
             where: { id: input.id },
@@ -173,6 +179,17 @@ export const courseRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       ensureAdmin(ctx.session.user?.email);
       await ctx.db.lesson.delete({ where: { id: input.id } });
+      return { success: true };
+    }),
+  deleteCourse: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      ensureAdmin(ctx.session.user?.email);
+      try {
+        await ctx.db.course.delete({ where: { id: input.id } });
+      } catch {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Course not found" });
+      }
       return { success: true };
     }),
 });

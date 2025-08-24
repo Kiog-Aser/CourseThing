@@ -6,6 +6,7 @@ import { Geist } from "next/font/google";
 import { TRPCReactProvider } from "~/trpc/react";
 import Link from "next/link";
 import { auth, signIn, signOut } from "~/server/auth";
+import { isAdminEmail } from "~/server/auth/utils/is-admin";
 import React from "react";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
+  const isAdmin = isAdminEmail(session?.user?.email);
   return (
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
@@ -35,7 +37,7 @@ export default async function RootLayout({
             </Link>
             <nav className="flex items-center gap-3">
               <Link href="/learn">Learn</Link>
-              <Link href="/dashboard">Dashboard</Link>
+              {isAdmin && <Link href="/dashboard">Dashboard</Link>}
               {session?.user ? (
                 <form
                   action={async () => {
