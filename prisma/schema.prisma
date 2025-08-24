@@ -1,5 +1,18 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
+// -----------------------------------------------------------------------------
+// Migration Notes (Course.language, Lesson.status, Lesson.contentJson)
+// 1. Create & apply local migration:
+//    npx prisma migrate dev --name add_course_language_and_lesson_status
+// 2. For production deploy after committing migration:
+//    npx prisma migrate deploy
+// 3. Backfill existing rows if you had prior data (run in SQL console):
+//    UPDATE "Course" SET "language"='general' WHERE "language" IS NULL;
+//    UPDATE "Lesson" SET "status"='DRAFT' WHERE "status" IS NULL;
+// 4. contentJson is optional; keep NULL until the rich editor stores structured JSON.
+// 5. If you manually edited schema without migration yet and only want to sync (dev only):
+//    npx prisma db push   (avoid for prod data changes; prefer migrate dev)
+// -----------------------------------------------------------------------------
 
 generator client {
     provider = "prisma-client-js"
@@ -63,6 +76,62 @@ model User {
     accounts      Account[]
     sessions      Session[]
     posts         Post[]
+        role          UserRole  @default(USER)
+        courses       Course[]  @relation("CourseAuthor")
+        lessons       Lesson[]  @relation("LessonAuthor")
+}
+
+// Simple role enum
+enum UserRole {
+    USER
+    ADMIN
+}
+
+model Course {
+    id          String   @id @default(cuid())
+    slug        String   @unique
+    title       String
+    language    String   @default("general")
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    author      User     @relation("CourseAuthor", fields: [authorId], references: [id])
+    authorId    String
+    lessons     Lesson[]
+
+    @@index([slug])
+}
+
+model Lesson {
+    id          String   @id @default(cuid())
+    slug        String
+    title       String
+    kind        LessonKind
+    status      LessonStatus @default(DRAFT)
+    content     String?
+    contentJson String?
+    youtubeId   String?
+    order       Int       @default(0)
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+    course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    courseId    String
+    author      User      @relation("LessonAuthor", fields: [authorId], references: [id])
+    authorId    String
+
+    @@unique([courseId, slug])
+    @@index([courseId, order])
+}
+
+enum LessonKind {
+    VIDEO
+    TEXT
+}
+
+enum LessonStatus {
+    DRAFT
+    PUBLISHED
+    ARCHIVED
 }
 
 model VerificationToken {

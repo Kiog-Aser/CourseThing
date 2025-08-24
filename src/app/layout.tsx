@@ -4,6 +4,9 @@ import { type Metadata } from "next";
 import { Geist } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
+import Link from "next/link";
+import { auth, signIn, signOut } from "~/server/auth";
+import React from "react";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -16,13 +19,46 @@ const geist = Geist({
   variable: "--font-geist-sans",
 });
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await auth();
   return (
-    <html lang="en" className={`${geist.variable}`}>
-      <body>
-        <TRPCReactProvider>{children}</TRPCReactProvider>
+    <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <TRPCReactProvider>
+          <header className="flex items-center justify-between border-b px-4 py-2 text-sm">
+            <Link href="/" className="font-semibold">
+              Moo
+            </Link>
+            <nav className="flex items-center gap-3">
+              <Link href="/learn">Learn</Link>
+              <Link href="/dashboard">Dashboard</Link>
+              {session?.user ? (
+                <form
+                  action={async () => {
+                    "use server";
+                    await signOut();
+                  }}
+                >
+                  <button className="rounded bg-black px-2 py-1 text-white dark:bg-white dark:text-black">
+                    Sign out
+                  </button>
+                </form>
+              ) : (
+                <Link
+                  href="/signin"
+                  className="rounded bg-black px-2 py-1 text-white dark:bg-white dark:text-black"
+                >
+                  Sign in
+                </Link>
+              )}
+            </nav>
+          </header>
+          {children}
+        </TRPCReactProvider>
       </body>
     </html>
   );

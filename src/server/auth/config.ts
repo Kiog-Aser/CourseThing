@@ -1,8 +1,12 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { type DefaultSession, type NextAuthConfig } from "next-auth";
-import DiscordProvider from "next-auth/providers/discord";
+import GoogleProvider from "next-auth/providers/google";
+import { Resend } from "resend";
+import type { EmailConfig } from "next-auth/providers/email";
+import { env } from "~/env";
 
 import { db } from "~/server/db";
+// (UserRole import removed - using allow-list, no enum needed)
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -26,13 +30,90 @@ declare module "next-auth" {
 }
 
 /**
+ * Custom Resend Email Provider
+ */
+function ResendProvider(options: {
+  from: string;
+  maxAge?: number;
+}): EmailConfig {
+  return {
+    id: "resend",
+    type: "email",
+    name: "Resend Email",
+    from: options.from,
+    maxAge: options.maxAge ?? 24 * 60 * 60, // 24 hours
+    sendVerificationRequest: async ({ identifier, url, provider }) => {
+      try {
+        // Development mode: Just log the magic link instead of sending email
+        if (
+          env.NODE_ENV === "development" &&
+          env.RESEND_API_KEY === "re_placeholder_resend_key"
+        ) {
+          console.log("\n🔗 DEVELOPMENT MODE - Magic Link:");
+          console.log("====================================");
+          console.log(`📧 To: ${identifier}`);
+          console.log(`🔗 Link: ${url}`);
+          console.log("====================================\n");
+          console.log(
+            "💡 Click the link above to sign in, or copy it to your browser",
+          );
+          return;
+        }
+
+        if (
+          !env.RESEND_API_KEY ||
+          env.RESEND_API_KEY === "re_placeholder_resend_key"
+        ) {
+          throw new Error(
+            "RESEND_API_KEY is not configured for production use",
+          );
+        }
+
+        const resend = new Resend(env.RESEND_API_KEY);
+
+        await resend.emails.send({
+          from: provider.from!,
+          to: identifier,
+          subject: "Sign in to Moo",
+          text: `Sign in to Moo: ${url}`,
+          html: `
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
+              <h2 style="color: #333;">Sign in to Moo</h2>
+              <p>Click the button below to sign in to your account:</p>
+              <a href="${url}" style="display: inline-block; background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                Sign In
+              </a>
+              <p>Or copy and paste this link into your browser:</p>
+              <p style="word-break: break-all; color: #666;">${url}</p>
+              <p style="color: #999; font-size: 12px; margin-top: 40px;">
+                This link will expire in ${Math.floor((options.maxAge ?? 24 * 60 * 60) / 60)} minutes.
+              </p>
+            </div>
+          `,
+        });
+      } catch (error) {
+        console.error("Failed to send verification email:", error);
+        throw new Error("Failed to send verification email");
+      }
+    },
+  };
+}
+
+/**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
  *
  * @see https://next-auth.js.org/configuration/options
  */
 export const authConfig = {
   providers: [
-    DiscordProvider,
+    GoogleProvider({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+    }),
+    ResendProvider({
+      from: env.EMAIL_FROM,
+      maxAge: 60 * 30, // 30 minutes
+    }),
     /**
      * ...add more providers here.
      *
@@ -45,12 +126,37 @@ export const authConfig = {
   ],
   adapter: PrismaAdapter(db),
   callbacks: {
-    session: ({ session, user }) => ({
-      ...session,
-      user: {
-        ...session.user,
-        id: user.id,
-      },
-    }),
+    session: async ({ session, user }) => {
+      try {
+        // ADMIN ALLOW-LIST LOGIC:
+        // Use comma-separated ADMIN_EMAILS env var to decide admin status.
+        // Example: ADMIN_EMAILS="you@example.com,other@example.com"
+        const adminEmails = (env.ADMIN_EMAILS ?? "")
+          .split(",")
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean);
+
+        const isAdmin =
+          !!user.email && adminEmails.includes(user.email.toLowerCase());
+
+        return {
+          ...session,
+          user: {
+            ...session.user,
+            id: user.id,
+            role: isAdmin ? "ADMIN" : "USER",
+          },
+        };
+      } catch (error) {
+        console.error("Error in session callback (allow-list):", error);
+        return {
+          ...session,
+          user: { ...session.user, id: user.id, role: "USER" },
+        };
+      }
+    },
+  },
+  pages: {
+    signIn: "/signin",
   },
 } satisfies NextAuthConfig;
