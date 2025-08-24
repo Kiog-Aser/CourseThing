@@ -1,9 +1,8 @@
 "use client";
 
-import { signIn, getProviders, getSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Mail, LogIn, Github } from "lucide-react";
+import { signIn, getProviders } from "next-auth/react";
+import { UserPlus, Mail, Github, LogIn } from "lucide-react";
 import { Alert, Button, Input, Label, FormField } from "~/components/ui";
 import { AuthShell } from "~/components/auth/auth-shell";
 import { ProviderButton } from "~/components/auth/provider-button";
@@ -16,7 +15,7 @@ interface Provider {
   callbackUrl: string;
 }
 
-export default function SignInPage() {
+export default function SignUpPage() {
   const [providers, setProviders] = useState<Record<string, Provider> | null>(
     null,
   );
@@ -27,66 +26,14 @@ export default function SignInPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
-    const setupProviders = async () => {
-      const providers = await getProviders();
-      setProviders(providers);
-
-      const session = await getSession();
-      if (session) {
-        router.push("/dashboard");
-      }
+    const loadProviders = async () => {
+      const p = await getProviders();
+      setProviders(p);
     };
-    void setupProviders();
-  }, [router]);
-
-  const handleEmailSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-
-    setIsLoading(true);
-    setMessage(null);
-
-    try {
-      const result = await signIn("resend", {
-        email,
-        redirect: false,
-        callbackUrl: "/dashboard",
-      });
-
-      if (result?.error) {
-        setMessage({
-          type: "error",
-          text: "Failed to send magic link. Please try again.",
-        });
-      } else {
-        setMessage({
-          type: "success",
-          text: "Magic link sent! Check your email.",
-        });
-        setEmail("");
-      }
-    } catch {
-      setMessage({
-        type: "error",
-        text: "Something went wrong. Please try again.",
-      });
-    }
-
-    setIsLoading(false);
-  };
-
-  const handleProviderSignIn = async (providerId: string) => {
-    setLoadingProvider(providerId);
-    try {
-      await signIn(providerId, { callbackUrl: "/dashboard" });
-    } catch {
-      setMessage({ type: "error", text: "Sign in failed. Please try again." });
-      setLoadingProvider(null);
-    }
-  };
+    void loadProviders();
+  }, []);
 
   const providerIcon = (providerId: string) => {
     switch (providerId) {
@@ -118,15 +65,54 @@ export default function SignInPage() {
     }
   };
 
+  const handleProvider = async (providerId: string) => {
+    setLoadingProvider(providerId);
+    try {
+      await signIn(providerId, { callbackUrl: "/dashboard" });
+    } catch {
+      setMessage({ type: "error", text: "Sign up failed. Try again." });
+      setLoadingProvider(null);
+    }
+  };
+
+  const handleEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setIsLoading(true);
+    setMessage(null);
+    try {
+      const res = await signIn("resend", {
+        email,
+        redirect: false,
+        callbackUrl: "/dashboard",
+      });
+      if (res?.error) {
+        setMessage({
+          type: "error",
+          text: "Could not send magic link. Please retry.",
+        });
+      } else {
+        setMessage({
+          type: "success",
+          text: "Magic link sent! Check your inbox.",
+        });
+        setEmail("");
+      }
+    } catch {
+      setMessage({ type: "error", text: "Unexpected error. Please retry." });
+    }
+    setIsLoading(false);
+  };
+
   return (
     <AuthShell
-      title="Welcome back"
-      description="Sign in to continue to Moo"
-      brand={<LogIn className="h-6 w-6" />}
+      title="Create your account"
+      description="Start learning with Moo"
+      brand={<UserPlus className="h-6 w-6" />}
       footer={
         <div className="space-y-3">
           <p className="leading-relaxed">
-            By signing in you agree to our{" "}
+            We use passwordless sign in. By continuing you agree to our{" "}
             <a
               href="#"
               className="text-primary font-medium underline-offset-4 hover:underline"
@@ -143,12 +129,12 @@ export default function SignInPage() {
             .
           </p>
           <p>
-            Need an account?{" "}
+            Already have an account?{" "}
             <a
-              href="/signup"
+              href="/signin"
               className="text-primary underline-offset-4 hover:underline"
             >
-              Sign up
+              Sign in
             </a>
           </p>
         </div>
@@ -181,9 +167,9 @@ export default function SignInPage() {
                       providerIcon(p.id)
                     )
                   }
-                  onClick={() => handleProviderSignIn(p.id)}
+                  onClick={() => handleProvider(p.id)}
                   loading={loadingProvider === p.id}
-                  loadingText="Signing in..."
+                  loadingText="Redirecting..."
                   className="w-full font-medium"
                 >
                   {`Continue with ${p.name}`}
@@ -205,7 +191,7 @@ export default function SignInPage() {
         </div>
       )}
 
-      <form onSubmit={handleEmailSignIn} className="space-y-4">
+      <form onSubmit={handleEmail} className="space-y-4">
         <FormField>
           <Label htmlFor="email" requiredMark>
             Email
@@ -218,8 +204,8 @@ export default function SignInPage() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
               autoComplete="email"
+              required
               className="pl-9"
             />
           </div>
@@ -234,7 +220,7 @@ export default function SignInPage() {
           disabled={!email || isLoading}
         >
           <Mail className="h-4 w-4" />
-          Send magic link
+          Email me a magic link
         </Button>
       </form>
     </AuthShell>
