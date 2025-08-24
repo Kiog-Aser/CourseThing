@@ -67,7 +67,43 @@ function renderJSON(
     const key = `${keyPrefix}-${index}`;
     switch (node.type) {
       case "paragraph": {
-        const inner = renderJSON(node.content, key);
+        const children = node.content ?? [];
+        const hasBlockish = children.some((c) => {
+          const t = c?.type;
+          if (!t) return false;
+          if (
+            [
+              "youtube",
+              "codeBlock",
+              "orderedList",
+              "bulletList",
+              "heading",
+              "blockquote",
+            ].includes(t)
+          )
+            return true;
+          if (t === "text") {
+            const txt = c.text ?? "";
+            if (txt.includes("<iframe") && txt.includes("</iframe>"))
+              return true;
+            if (
+              /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:(?:watch\?(?:.*&)?v=)|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i.test(
+                txt.trim(),
+              )
+            )
+              return true;
+          }
+          return false;
+        });
+        if (hasBlockish) {
+          out.push(
+            <React.Fragment key={key}>
+              {renderJSON(children, key)}
+            </React.Fragment>,
+          );
+          break;
+        }
+        const inner = renderJSON(children, key);
         const textOnly = collectText(node).trim();
         if (!textOnly && !inner) {
           out.push(<p key={key} className="h-4" />);
@@ -78,11 +114,13 @@ function renderJSON(
       }
       case "heading": {
         const level = Math.min(Math.max(node.attrs?.level ?? 2, 1), 3);
-        const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+        const tag = level === 1 ? "h1" : level === 2 ? "h2" : "h3";
         out.push(
-          <HeadingTag key={key} className="mt-6 first:mt-0">
-            {renderJSON(node.content, key)}
-          </HeadingTag>,
+          React.createElement(
+            tag,
+            { key, className: "mt-6 first:mt-0" },
+            renderJSON(node.content, key),
+          ),
         );
         break;
       }
@@ -167,6 +205,9 @@ function renderJSON(
           );
         if (ytMatch) {
           const id = ytMatch[1];
+          // Render as inline-safe content (anchor + thumbnail) to avoid placing a block <div> (with iframe)
+          // inside a paragraph, which causes hydration errors. If you want the full embedded iframe,
+          // adjust the paragraph rendering logic to detect block children and skip wrapping in <p>.
           out.push(
             <div
               key={key}

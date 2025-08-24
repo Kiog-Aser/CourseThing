@@ -8,6 +8,7 @@ import Link from "next/link";
 import { auth, signIn, signOut } from "~/server/auth";
 import { isAdminEmail } from "~/server/auth/utils/is-admin";
 import React from "react";
+import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -30,37 +31,39 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${geist.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <TRPCReactProvider>
-          <header className="flex items-center justify-between border-b px-4 py-2 text-sm">
-            <Link href="/" className="font-semibold">
-              Moo
-            </Link>
-            <nav className="flex items-center gap-3">
-              <Link href="/learn">Learn</Link>
-              {isAdmin && <Link href="/dashboard">Dashboard</Link>}
-              {session?.user ? (
-                <form
-                  action={async () => {
-                    "use server";
-                    await signOut();
-                  }}
-                >
-                  <button className="rounded bg-black px-2 py-1 text-white dark:bg-white dark:text-black">
-                    Sign out
-                  </button>
-                </form>
-              ) : (
-                <Link
-                  href="/signin"
-                  className="rounded bg-black px-2 py-1 text-white dark:bg-white dark:text-black"
-                >
-                  Sign in
-                </Link>
-              )}
-            </nav>
-          </header>
-          {children}
-        </TRPCReactProvider>
+        <SessionProvider session={session}>
+          <TRPCReactProvider>
+            <header className="flex items-center justify-between border-b px-4 py-2 text-sm">
+              <Link href="/" className="font-semibold">
+                Moo
+              </Link>
+              <nav className="flex items-center gap-3">
+                <Link href="/learn">Learn</Link>
+                {isAdmin && <Link href="/dashboard">Dashboard</Link>}
+                {session?.user ? (
+                  <form
+                    action={async () => {
+                      "use server";
+                      await signOut();
+                    }}
+                  >
+                    <button className="rounded bg-black px-2 py-1 text-white dark:bg-white dark:text-black">
+                      Sign out
+                    </button>
+                  </form>
+                ) : (
+                  <Link
+                    href="/signin"
+                    className="rounded bg-black px-2 py-1 text-white dark:bg-white dark:text-black"
+                  >
+                    Sign in
+                  </Link>
+                )}
+              </nav>
+            </header>
+            {children}
+          </TRPCReactProvider>
+        </SessionProvider>
       </body>
     </html>
   );
