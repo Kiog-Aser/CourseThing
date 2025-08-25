@@ -144,7 +144,7 @@ export const authConfig = {
         const isAdmin =
           !!user.email && adminEmails.includes(user.email.toLowerCase());
 
-        // Check Creative Fun subscription status
+        // Check CreatiFun subscription status
         const hasCreativeFunSubscription = user.email
           ? await checkCreativeFunSubscription(user.email)
           : false;

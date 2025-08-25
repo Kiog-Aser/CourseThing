@@ -79,13 +79,13 @@ export default function HomePageClient({
         <div className="relative z-10 max-w-2xl space-y-6">
           <div className="bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-wide backdrop-blur">
             <BookOpen size={14} />
-            <span>Creative Fun Course Platform</span>
+            <span>CreatiFun Course Platform</span>
           </div>
           <h1 className="text-4xl leading-tight font-bold tracking-tight text-balance md:text-5xl">
-            Access premium courses from Creative Fun service
+            Access premium courses from CreatiFun service
           </h1>
           <p className="text-muted-foreground text-base leading-relaxed">
-            Access exclusive courses designed by Creative Fun experts. Subscribe to our service and unlock premium content to enhance your creative journey.
+            Access exclusive courses designed by CreatiFun experts. Subscribe to our service and unlock premium content to enhance your creative journey.
           </p>
           <div className="flex flex-wrap gap-4">
             <Link
@@ -107,7 +107,7 @@ export default function HomePageClient({
                   href="/signup"
                   className="hover:bg-accent inline-flex items-center gap-2 rounded-md border px-5 py-3 text-sm font-medium"
                 >
-                  Subscribe to Creative Fun
+                  Subscribe to CreatiFun
                 </Link>
                 <Link
                   href="/signin"
@@ -128,7 +128,7 @@ export default function HomePageClient({
           </div>
           {!isAuthed && (
             <p className="text-muted-foreground/80 text-xs">
-              You are viewing as a guest. Subscribe to Creative Fun to unlock all premium content.
+              You are viewing as a guest. Subscribe to CreatiFun to unlock all premium content.
             </p>
           )}
         </div>

@@ -12,7 +12,7 @@ interface CreativeFunSubscriptionGuardProps {
 }
 
 /**
- * Component that guards premium content behind Creative Fun subscription
+ * Component that guards premium content behind CreatiFun subscription
  * Shows subscription required message if user doesn't have active subscription
  */
 export function CreativeFunSubscriptionGuard({
@@ -40,7 +40,7 @@ export function CreativeFunSubscriptionGuard({
             Sign in to continue
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            You need to be signed in to access Creative Fun premium content.
+            You need to be signed in to access CreatiFun premium content.
             Create a free account or sign in to get started.
           </p>
         </div>
@@ -56,7 +56,7 @@ export function CreativeFunSubscriptionGuard({
     );
   }
 
-  // Check if user has Creative Fun subscription
+  // Check if user has CreatiFun subscription
   const hasCreativeFunSubscription = session.user.creativeFunSubscription;
 
   // If user doesn't have subscription, show subscription required message
@@ -66,17 +66,17 @@ export function CreativeFunSubscriptionGuard({
         <AlertTriangle className="text-amber-500 h-10 w-10" />
         <div className="space-y-2">
           <h2 className="text-xl font-semibold tracking-tight">
-            Creative Fun Subscription Required
+            CreatiFun Subscription Required
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            This premium content is exclusively available to Creative Fun subscribers.
+            This premium content is exclusively available to CreatiFun subscribers.
             Subscribe to unlock access to all premium courses and exclusive content.
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Button asChild>
             <Link href="/signup?subscription=creativefun">
-              Subscribe to Creative Fun
+              Subscribe to CreatiFun
             </Link>
           </Button>
           <Button variant="outline" asChild>
