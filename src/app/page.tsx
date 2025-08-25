@@ -63,14 +63,13 @@ export default async function HomePage() {
         <div className="relative z-10 max-w-2xl space-y-6">
           <div className="bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-wide backdrop-blur">
             <BookOpen size={14} />
-            <span>Practical, free first lessons</span>
+            <span>Interactive language learning platform</span>
           </div>
           <h1 className="text-4xl leading-tight font-bold tracking-tight text-balance md:text-5xl">
-            Master languages, one bite‑sized lesson at a time
+            Master new languages through structured, engaging courses
           </h1>
           <p className="text-muted-foreground text-base leading-relaxed">
-            The first lesson of every course is unlocked. Sign in (free) to
-            continue with the rest of each course and track your progress.
+            Experience the first lesson of every course for free. Join our community of language learners and track your progress as you build fluency step by step.
           </p>
           <div className="flex flex-wrap gap-4">
             <Link
@@ -121,6 +120,37 @@ export default async function HomePage() {
         <div className="pointer-events-none absolute inset-0">
           <div className="bg-primary/20 absolute -top-20 -right-20 h-72 w-72 rounded-full blur-3xl" />
           <div className="bg-primary/10 absolute bottom-[-4rem] left-[-2rem] h-80 w-80 rounded-full blur-3xl" />
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="mb-16 grid gap-8 md:grid-cols-3">
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-4 rounded-full bg-primary/10 p-3">
+            <BookOpen size={24} className="text-primary" />
+          </div>
+          <h3 className="mb-2 text-lg font-semibold">Structured Learning</h3>
+          <p className="text-muted-foreground text-sm">
+            Follow carefully designed courses with progressive difficulty and clear learning objectives.
+          </p>
+        </div>
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-4 rounded-full bg-primary/10 p-3">
+            <ArrowRight size={24} className="text-primary" />
+          </div>
+          <h3 className="mb-2 text-lg font-semibold">Progress Tracking</h3>
+          <p className="text-muted-foreground text-sm">
+            Monitor your learning journey with detailed progress indicators and completion tracking.
+          </p>
+        </div>
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-4 rounded-full bg-primary/10 p-3">
+            <Lock size={24} className="text-primary" />
+          </div>
+          <h3 className="mb-2 text-lg font-semibold">Free to Start</h3>
+          <p className="text-muted-foreground text-sm">
+            Begin learning immediately with free access to the first lesson of every course.
+          </p>
         </div>
       </section>
 
@@ -185,7 +215,7 @@ export default async function HomePage() {
                         {course.title}
                       </h3>
                       <p className="text-muted-foreground mb-5 line-clamp-3 text-xs leading-relaxed">
-                        {course.description ?? "No description provided."}
+                        {course.description ?? "Start your language learning journey with this comprehensive course designed for beginners and intermediate learners."}
                       </p>
                       <div className="mt-auto flex items-center justify-between text-xs font-medium">
                         <span className="text-primary inline-flex items-center gap-1">

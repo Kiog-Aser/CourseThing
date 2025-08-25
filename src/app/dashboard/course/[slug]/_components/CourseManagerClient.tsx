@@ -19,7 +19,28 @@ import {
 
 import type { RouterOutputs } from "~/trpc/react";
 
-type CourseData = NonNullable<RouterOutputs["course"]["bySlug"]>;
+type LessonWithDescription = {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string | null;
+  kind: string;
+  status: string;
+  content?: string | null;
+  contentJson?: string | null;
+  youtubeId?: string | null;
+  order: number;
+  authorId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type CourseData = Omit<
+  NonNullable<RouterOutputs["course"]["bySlug"]>,
+  "lessons"
+> & {
+  lessons: LessonWithDescription[];
+};
 
 export interface CourseManagerClientProps {
   slug: string;
@@ -154,7 +175,26 @@ export function CourseManagerClient({
 
   const courseQuery = api.course.bySlug.useQuery(
     { slug },
-    { initialData: initialCourse },
+    {
+      initialData: {
+        ...initialCourse,
+        lessons: initialCourse.lessons.map(lesson => ({
+          id: lesson.id,
+          slug: lesson.slug,
+          title: lesson.title,
+          description: lesson.description ?? null,
+          kind: lesson.kind as "VIDEO" | "TEXT",
+          status: lesson.status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
+          content: lesson.content ?? null,
+          contentJson: lesson.contentJson ?? null,
+          youtubeId: lesson.youtubeId ?? null,
+          order: lesson.order,
+          authorId: lesson.authorId,
+          createdAt: lesson.createdAt,
+          updatedAt: lesson.updatedAt,
+        }))
+      }
+    },
   );
 
   const updateCourse = api.course.update.useMutation({
@@ -175,8 +215,10 @@ export function CourseManagerClient({
 
   /* ------------------------------- State ----------------------------------- */
 
-  const course = courseQuery.data;
-  const lessonsSorted =
+  const course: CourseData | undefined = courseQuery.data as
+    | CourseData
+    | undefined;
+  const lessonsSorted: LessonWithDescription[] =
     [...(course?.lessons ?? [])].sort((a, b) => a.order - b.order) ?? [];
 
   const [activeLessonId, setActiveLessonId] = React.useState<string | null>(
@@ -198,10 +240,12 @@ export function CourseManagerClient({
   const [lessonMeta, setLessonMeta] = React.useState<{
     id: string | null;
     title: string;
+    description: string;
     dirty: boolean;
   }>({
     id: activeLesson?.id ?? null,
     title: activeLesson?.title ?? "",
+    description: activeLesson?.description ?? "",
     dirty: false,
   });
 
@@ -210,6 +254,7 @@ export function CourseManagerClient({
     setLessonMeta({
       id: activeLesson.id,
       title: activeLesson.title,
+      description: activeLesson.description ?? "",
       dirty: false,
     });
   }, [activeLesson?.id]);
@@ -303,6 +348,7 @@ export function CourseManagerClient({
         data: {
           title: lessonMeta.title.trim() || "Untitled",
           slug: normalizeSlug(lessonMeta.title.trim() || "untitled"),
+          description: lessonMeta.description?.trim() || "",
           content: undefined,
           contentJson: undefined,
         },
@@ -349,6 +395,7 @@ export function CourseManagerClient({
         slug: slugBase,
         kind: "TEXT",
         status: "PUBLISHED",
+        description: "",
         content: "",
         contentJson: "",
         youtubeId: "",
@@ -399,9 +446,12 @@ export function CourseManagerClient({
       .filter((id): id is string => typeof id === "string");
     const from = ids.indexOf(draggingLessonId);
     const to = ids.indexOf(dropId);
-    if (from === -1 || to === -1) return;
-    ids.splice(to, 0, ids.splice(from, 1)[0]);
-    reorderLessons(ids);
+    if (from === -1 || to === -1 || !draggingLessonId) return;
+    const [removedId] = ids.splice(from, 1);
+    if (removedId) {
+      ids.splice(to, 0, removedId);
+      reorderLessons(ids);
+    }
     setDraggingLessonId(null);
   }
 
@@ -498,6 +548,22 @@ export function CourseManagerClient({
                     }
                   >
                     {idx + 1}. {lesson.title || "Untitled"}
+                    {lesson.description && (
+                      <div
+                        className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                        title={lesson.description}
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        {lesson.description}
+                      </div>
+                    )}
                   </span>
                   <button
                     onClick={(e) => {
@@ -595,7 +661,24 @@ export function CourseManagerClient({
                 placeholder="Untitled lesson"
                 className="w-full bg-transparent text-3xl font-bold tracking-tight outline-none"
               />
-              <div className="text-muted-foreground text-[10px] tracking-wide uppercase">
+              <textarea
+                value={lessonMeta.description}
+                onChange={(e) =>
+                  setLessonMeta((m) => ({
+                    ...m,
+                    description: e.target.value,
+                    dirty: true,
+                  }))
+                }
+                placeholder="Lesson description"
+                className="mt-2 w-full resize-none bg-transparent text-base font-normal tracking-tight outline-none"
+                rows={2}
+                maxLength={200}
+              />
+              <div
+                className="text-muted-foreground text-[10px] tracking-wide uppercase"
+                style={{ marginTop: -25 }}
+              >
                 {lessonMeta.dirty || updateLesson.status === "pending"
                   ? "Saving..."
                   : "Saved"}

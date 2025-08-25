@@ -21,6 +21,7 @@ type LessonRecord = {
   id: string;
   slug: string;
   title: string;
+  description?: string | null;
   kind: "VIDEO" | "TEXT";
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   content: string | null;
@@ -283,19 +284,21 @@ export default function LearnPage() {
 
   const courseQuery = api.course.bySlug.useQuery(
     { slug: courseSlug },
-    { enabled: !!courseSlug },
+    { enabled: !!courseSlug && courseSlug.length > 0 },
   );
 
-  const course: CourseRecord | undefined = courseQuery.data as any;
+  const course: CourseRecord | undefined = courseQuery.data as
+    | CourseRecord
+    | undefined;
 
-  const lessons = useMemo<LessonRecord[]>(() => {
+  const lessons: LessonRecord[] = useMemo(() => {
     if (!course) return [];
     return [...course.lessons]
-      .filter((l) => l.status === "PUBLISHED")
-      .sort((a, b) => a.order - b.order);
+      .filter((l: LessonRecord) => l.status === "PUBLISHED")
+      .sort((a: LessonRecord, b: LessonRecord) => a.order - b.order);
   }, [course]);
 
-  // --- Progress & Completion State (HOOKS MOVED TO TOP) ---
+  // --- Progress & Completion State (HOOKS) ---
   const courseId = course?.id ?? "";
   const { data: completedLessonIds = [], refetch: refetchCompletions } =
     api.course.getLessonCompletions.useQuery(
@@ -562,6 +565,22 @@ export default function LearnPage() {
                   </span>
                   <span className="flex-1 leading-snug">
                     {lesson.title || "Untitled"}
+                    {lesson.description && (
+                      <div
+                        className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                        title={lesson.description}
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        {lesson.description}
+                      </div>
+                    )}
                   </span>
                   {locked ? (
                     <Lock
@@ -582,8 +601,8 @@ export default function LearnPage() {
                   ) : null}
                   {/* Completion toggle - single circle or check */}
                   <span
-                    className="ml-2 flex cursor-pointer items-center justify-center rounded-full p-0.5 transition hover:bg-emerald-50"
-                    style={{ height: 24, width: 24 }}
+                    className="ml-2 flex items-center justify-center rounded-full p-0.5 transition hover:bg-emerald-50"
+                    style={{ height: 24, width: 24, cursor: "pointer" }}
                     title={
                       isCompleted ? "Mark as incomplete" : "Mark as completed"
                     }
@@ -711,6 +730,11 @@ export default function LearnPage() {
                   <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-3xl">
                     {active.title}
                   </h1>
+                  {active.description && (
+                    <div className="text-muted-foreground text-sm leading-snug">
+                      {active.description}
+                    </div>
+                  )}
                   <div className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
                     Lesson {lessons.findIndex((l) => l.id === active.id) + 1} of{" "}
                     {lessons.length}

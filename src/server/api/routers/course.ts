@@ -20,6 +20,7 @@ const courseBase = z.object({
 
 const lessonBase = z.object({
   title: z.string().min(2),
+  description: z.string().optional(),
   slug: z
     .string()
     .regex(/^[a-z0-9-]+$/)
@@ -100,7 +101,7 @@ export const courseRouter = createTRPCRouter({
           language: true,
         },
       });
-    } catch (_err) {
+    } catch {
       // Fallback path: older database without the language column
       const fallback = await ctx.db.course.findMany({
         orderBy: { createdAt: "desc" },
@@ -125,13 +126,59 @@ export const courseRouter = createTRPCRouter({
     }
   }),
   bySlug: publicProcedure
-    .input(z.object({ slug: z.string() }))
-    .query(({ ctx, input }) =>
-      ctx.db.course.findUnique({
-        where: { slug: input.slug },
-        include: { lessons: { orderBy: { order: "asc" } } },
-      }),
-    ),
+    .input(z.object({ slug: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      try {
+        return await ctx.db.course.findUnique({
+          where: { slug: input.slug },
+          include: {
+            lessons: {
+              orderBy: { order: "asc" },
+              select: {
+                id: true,
+                slug: true,
+                title: true,
+                description: true,
+                kind: true,
+                status: true,
+                content: true,
+                contentJson: true,
+                youtubeId: true,
+                order: true,
+                authorId: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+          },
+        });
+      } catch (error) {
+        console.error('Database error in bySlug:', error);
+        // Fallback: try without description field
+        return await ctx.db.course.findUnique({
+          where: { slug: input.slug },
+          include: {
+            lessons: {
+              orderBy: { order: "asc" },
+              select: {
+                id: true,
+                slug: true,
+                title: true,
+                kind: true,
+                status: true,
+                content: true,
+                contentJson: true,
+                youtubeId: true,
+                order: true,
+                authorId: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+          },
+        });
+      }
+    }),
   create: protectedProcedure
     .input(courseBase)
     .mutation(async ({ ctx, input }) => {
@@ -205,22 +252,45 @@ export const courseRouter = createTRPCRouter({
     .input(z.object({ courseId: z.string(), data: lessonBase }))
     .mutation(async ({ ctx, input }) => {
       ensureAdmin(ctx.session.user?.email);
-      return ctx.db.lesson.create({
-        data: {
-          ...input.data,
-          courseId: input.courseId,
-          authorId: ctx.session.user.id,
-        },
-      });
+      try {
+        return await ctx.db.lesson.create({
+          data: {
+            ...input.data,
+            courseId: input.courseId,
+            authorId: ctx.session.user.id,
+          },
+        });
+      } catch (error) {
+        console.error('Database error in addLesson:', error);
+        // Fallback: try without description field
+        const { description, ...dataWithoutDescription } = input.data;
+        return await ctx.db.lesson.create({
+          data: {
+            ...dataWithoutDescription,
+            courseId: input.courseId,
+            authorId: ctx.session.user.id,
+          },
+        });
+      }
     }),
   updateLesson: protectedProcedure
     .input(z.object({ id: z.string(), data: lessonBase.partial() }))
     .mutation(async ({ ctx, input }) => {
       ensureAdmin(ctx.session.user?.email);
-      return ctx.db.lesson.update({
-        where: { id: input.id },
-        data: input.data,
-      });
+      try {
+        return await ctx.db.lesson.update({
+          where: { id: input.id },
+          data: input.data,
+        });
+      } catch (error) {
+        console.error('Database error in updateLesson:', error);
+        // Fallback: try without description field
+        const { description, ...dataWithoutDescription } = input.data;
+        return await ctx.db.lesson.update({
+          where: { id: input.id },
+          data: dataWithoutDescription,
+        });
+      }
     }),
   deleteLesson: protectedProcedure
     .input(z.object({ id: z.string() }))
