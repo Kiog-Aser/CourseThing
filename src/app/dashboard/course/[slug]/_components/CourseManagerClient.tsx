@@ -510,12 +510,12 @@ export function CourseManagerClient({
       setDraggingLessonId(id);
       e.dataTransfer.setData("text/plain", id);
     }
-    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.effectAllowed = "copy";
   }
 
   function handleDragOver(e: React.DragEvent, _overId: string) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect = "copy";
   }
 
   function handleDrop(e: React.DragEvent, dropId: string | undefined) {
@@ -618,7 +618,7 @@ export function CourseManagerClient({
   function handleDeleteChapter(id: string) {
     if (
       !confirm(
-        "Delete this chapter? All lessons in this chapter will be moved to the main course.",
+        "Delete this chapter? All lessons in this chapter will be added to the main course.",
       )
     )
       return;
@@ -626,13 +626,13 @@ export function CourseManagerClient({
   }
 
   function handleChapterDragStart(e: React.DragEvent, id: string) {
-    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData("text/plain", id);
   }
 
   function handleChapterDragOver(e: React.DragEvent) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    e.dataTransfer.dropEffect = "copy";
   }
 
   function handleChapterReorder(e: React.DragEvent, dropId: string) {
@@ -642,7 +642,7 @@ export function CourseManagerClient({
 
     const draggedIndex = chaptersSorted.findIndex((c) => c.id === draggedId);
 
-    // If the dragged item is NOT a chapter, treat it as a lesson being moved into this chapter
+    // If the dragged item is NOT a chapter, treat it as a lesson being added to this chapter
     if (draggedIndex === -1) {
       updateLesson.mutate({
         id: draggedId,
@@ -890,7 +890,7 @@ export function CourseManagerClient({
                               });
                             }}
                             className="hover:bg-muted rounded border px-1.5 py-0.5 text-[10px]"
-                            title="Remove from chapter"
+                            title="Move to main course"
                           >
                             Remove
                           </button>
