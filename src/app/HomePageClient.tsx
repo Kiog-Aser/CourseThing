@@ -217,12 +217,14 @@ export default function HomePageClient({
                       )}
                     </div>
                     <div className="ml-4 flex items-center gap-2">
-                      <Link
-                        href={`/courses/${course.slug}`}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1 text-xs font-medium transition"
-                      >
-                        Start Course
-                      </Link>
+                      {!hasChapters && (
+                        <Link
+                          href={`/learn?course=${course.slug}`}
+                          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1 text-xs font-medium transition"
+                        >
+                          Start Course
+                        </Link>
+                      )}
                       {hasChapters && (
                         <>
                           <span className="text-muted-foreground group-hover:text-foreground text-xs">
@@ -259,18 +261,11 @@ export default function HomePageClient({
                           accentColor="#6366f1"
                           chapterCount={course.chapters.length}
                           lessonCount={course.lessons.length}
-                          variant="course"
-                          onClick={() => {
-                            // Navigate to course overview page
-                            window.location.href = `/courses/${course.slug}`;
-                          }}
+                          onClick={() =>
+                            hasChapters && toggleCourseExpansion(course.id)
+                          }
                         />
-                        {/* Debug info */}
-                        {process.env.NODE_ENV === 'development' && course.poster && (
-                          <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
-                            Poster URL: {course.poster}
-                          </div>
-                        )}
+
                       </div>
                       </div>
 
@@ -279,7 +274,7 @@ export default function HomePageClient({
                         course.chapters.map((chapter) => (
                           <div key={chapter.id}>
                             <CoursePosterCard
-                              slug={`/courses/${course.slug}`}
+                              slug={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
                               title={chapter.title}
                               language={course.language}
                               description={chapter.description}
@@ -287,18 +282,11 @@ export default function HomePageClient({
                               tagline={chapter.description}
                               accentColor="#8b5cf6"
                               lessonCount={chapter.lessons.length}
-                              variant="chapter"
-                              onClick={() => {
-                                // Navigate to course overview page
-                                window.location.href = `/courses/${course.slug}`;
-                              }}
+                              onClick={() =>
+                                (window.location.href = `/learn?course=${course.slug}&chapter=${chapter.slug}`)
+                              }
                             />
-                            {/* Debug info */}
-                            {process.env.NODE_ENV === 'development' && chapter.poster && (
-                              <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
-                                Chapter Poster: {chapter.poster}
-                              </div>
-                            )}
+
                           </div>
                         ))}
                     </div>
@@ -330,14 +318,26 @@ export default function HomePageClient({
                               </div>
                             </div>
                             <Link
-                              href={`/courses/${course.slug}`}
+                              href={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
                               className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition"
                             >
-                              View Course
+                              Start Chapter
                             </Link>
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Start Course Button */}
+                  {hasChapters && (
+                    <div className="mt-6 flex justify-center">
+                      <Link
+                        href={`/learn?course=${course.slug}`}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-8 py-4 text-lg font-medium shadow-lg transition"
+                      >
+                        Start Course - First Lesson Free
+                      </Link>
                     </div>
                   )}
                 </div>
