@@ -4,7 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { Resend } from "resend";
 import type { EmailConfig } from "next-auth/providers/email";
 import { env } from "~/env";
-import { checkCreativeFunSubscription } from "./utils/creative-fun-subscription";
+import { checkCreativeFunCustomer } from "./utils/creative-fun-subscription";
 
 import { db } from "~/server/db";
 // (UserRole import removed - using allow-list, no enum needed)
@@ -144,9 +144,9 @@ export const authConfig = {
         const isAdmin =
           !!user.email && adminEmails.includes(user.email.toLowerCase());
 
-        // Check CreatiFun subscription status
-        const hasCreativeFunSubscription = user.email
-          ? await checkCreativeFunSubscription(user.email)
+        // Check CreatiFun customer status
+        const isCreativeFunCustomer = user.email
+          ? await checkCreativeFunCustomer(user.email)
           : false;
 
         return {
@@ -155,7 +155,7 @@ export const authConfig = {
             ...session.user,
             id: user.id,
             role: isAdmin ? "ADMIN" : "USER",
-            creativeFunSubscription: hasCreativeFunSubscription,
+            creativeFunSubscription: isCreativeFunCustomer,
           },
         };
       } catch (error) {

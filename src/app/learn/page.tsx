@@ -616,9 +616,10 @@ export default function LearnPage() {
                       const isActive = lesson.id === activeId;
                       const isVideo =
                         lesson.kind === "VIDEO" || !!lesson.youtubeId;
-                      // First lesson is free, others require authentication
+                      // First lesson is free, others require authentication and customer verification
                       const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
-                      const locked = !isAuthed && !isFirstLesson;
+                      const isCustomer = session?.user?.creativeFunSubscription === true;
+                      const locked = !isFirstLesson && (!isAuthed || !isCustomer);
                       const isCompleted = optimisticIds.includes(lesson.id);
 
                       return (
@@ -770,9 +771,10 @@ export default function LearnPage() {
             {course?.lessons?.map((lesson, idx) => {
               const isActive = lesson.id === activeId;
               const isVideo = lesson.kind === "VIDEO" || !!lesson.youtubeId;
-              // First lesson is free, others require authentication
+              // First lesson is free, others require authentication and customer verification
               const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
-              const locked = !isAuthed && !isFirstLesson;
+              const isCustomer = session?.user?.creativeFunSubscription === true;
+              const locked = !isFirstLesson && (!isAuthed || !isCustomer);
               const isCompleted = optimisticIds.includes(lesson.id);
 
               return (
@@ -915,11 +917,12 @@ export default function LearnPage() {
                 <Lock className="text-muted-foreground h-10 w-10" />
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold tracking-tight">
-                    Sign in to continue
+                    CreatiFun Customer Access Required
                   </h2>
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    The first lesson is free to try! Sign in to access all lessons
-                    and continue your learning journey.
+                    The first lesson is free to try! To access all lessons, you need
+                    to be a verified CreatiFun customer. Sign in to continue your
+                    learning journey.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-3">
