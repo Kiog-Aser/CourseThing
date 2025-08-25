@@ -19,6 +19,11 @@ type CourseWithChapters = {
     description: string | null;
     poster: string | null;
     order: number;
+    lessons: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+    }>;
   }>;
   lessons: Array<{
     id: string;
@@ -70,7 +75,7 @@ export default function HomePageClient({
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">
       {/* Hero */}
-      <section className="from-primary/10 via-primary/5 relative mb-14 overflow-hidden rounded-2xl border bg-gradient-to-br to-transparent p-10">
+      <section className="from-primary/10 via-primary/5 relative mb-8 overflow-hidden rounded-2xl border bg-gradient-to-br to-transparent p-10">
         <div className="relative z-10 max-w-2xl space-y-6">
           <div className="bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-wide backdrop-blur">
             <BookOpen size={14} />
@@ -158,24 +163,15 @@ export default function HomePageClient({
       )}
 
       {/* Expandable Course Sections */}
-      <div id="courses" className="mt-24 space-y-20">
+      <div id="courses" className="mt-12 space-y-16">
         {grouped.map(([language, courseList]) => (
           <section key={language} className="scroll-mt-24">
-            <div className="mb-6 flex items-end justify-between gap-4">
+            <div className="flex items-end justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">
-                  {language.charAt(0).toUpperCase() + language.slice(1)} Series
+                  {language.charAt(0).toUpperCase() + language.slice(1)} Course
                 </h2>
-                <p className="text-muted-foreground text-sm">
-                  {courseList.length} course{courseList.length !== 1 && "s"}
-                </p>
               </div>
-              <a
-                href="#"
-                className="text-primary text-xs font-medium underline-offset-4 hover:underline"
-              >
-                Back to top
-              </a>
             </div>
 
             {courseList.map((course) => {
@@ -236,6 +232,11 @@ export default function HomePageClient({
                         coverImageUrl={course.poster}
                         tagline={course.description}
                         accentColor="#6366f1"
+                        chapterCount={course.chapters.length}
+                        lessonCount={course.lessons.length}
+                        onClick={() =>
+                          hasChapters && toggleCourseExpansion(course.id)
+                        }
                       />
 
                       {/* Chapter Posters (only when expanded) */}
@@ -250,6 +251,10 @@ export default function HomePageClient({
                             coverImageUrl={chapter.poster}
                             tagline={chapter.description}
                             accentColor="#8b5cf6"
+                            lessonCount={chapter.lessons.length}
+                            onClick={() =>
+                              (window.location.href = `/learn?course=${course.slug}&chapter=${chapter.slug}`)
+                            }
                           />
                         ))}
                     </div>

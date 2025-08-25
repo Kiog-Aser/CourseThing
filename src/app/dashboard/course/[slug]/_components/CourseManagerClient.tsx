@@ -33,16 +33,36 @@ type LessonWithDescription = {
   contentJson?: string | null;
   youtubeId?: string | null;
   order: number;
+  chapterId?: string | null;
   authorId: string;
   createdAt: Date;
   updatedAt: Date;
 };
 
-type CourseData = Omit<
-  NonNullable<RouterOutputs["course"]["bySlug"]>,
-  "lessons"
-> & {
+type ChapterData = {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string | null;
+  poster?: string | null;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
   lessons: LessonWithDescription[];
+};
+
+type CourseData = {
+  id: string;
+  slug: string;
+  title: string;
+  language: string;
+  description?: string | null;
+  poster?: string | null;
+  authorId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lessons: LessonWithDescription[];
+  chapters: ChapterData[];
 };
 
 export interface CourseManagerClientProps {
@@ -176,53 +196,52 @@ export function CourseManagerClient({
   const progressPercent =
     totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
-  const courseQuery = api.course.bySlug.useQuery(
-    { slug },
-    {
-      initialData: {
-        ...initialCourse,
-        lessons: initialCourse.lessons.map(lesson => ({
-          id: lesson.id,
-          slug: lesson.slug,
-          title: lesson.title,
-          description: lesson.description ?? null,
-          kind: lesson.kind as "VIDEO" | "TEXT",
-          status: lesson.status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
-          content: lesson.content ?? null,
-          contentJson: lesson.contentJson ?? null,
-          youtubeId: lesson.youtubeId ?? null,
-          order: lesson.order,
-          authorId: lesson.authorId,
-          createdAt: lesson.createdAt,
-          updatedAt: lesson.updatedAt,
-        }))
-      }
-    },
-  );
+  const courseQuery = api.course.bySlug.useQuery({ slug });
 
   const updateCourse = api.course.update.useMutation({
     onSuccess: () => void utils.course.bySlug.invalidate({ slug }),
   });
   const addLesson = api.course.addLesson.useMutation({
     onSuccess: (data) =>
-      void utils.course.bySlug.invalidate({ slug }).then(() => {
+      Promise.all([
+        utils.course.bySlug.invalidate({ slug }),
+        utils.course.listChapters.invalidate({ courseId: initialCourse.id }),
+      ]).then(() => {
         setActiveLessonId(data.id);
       }),
   });
   const updateLesson = api.course.updateLesson.useMutation({
-    onSuccess: () => void utils.course.bySlug.invalidate({ slug }),
+    onSuccess: () => {
+      void utils.course.bySlug.invalidate({ slug });
+      void utils.course.listChapters.invalidate({ courseId: initialCourse.id });
+    },
   });
   const deleteLesson = api.course.deleteLesson.useMutation({
-    onSuccess: () => void utils.course.bySlug.invalidate({ slug }),
+    onSuccess: () => {
+      void utils.course.bySlug.invalidate({ slug });
+      void utils.course.listChapters.invalidate({ courseId: initialCourse.id });
+    },
   });
 
   // Chapter operations
   const chaptersQuery = api.course.listChapters.useQuery(
     { courseId: initialCourse.id },
     {
-      initialData: initialCourse.chapters || [],
-    }
+      initialData: initialCourse.chapters,
+    },
   );
+  // Chapter collapse / expand state
+  const [expandedChapters, setExpandedChapters] = React.useState<Set<string>>(
+    new Set(),
+  );
+  const toggleChapter = (chapterId: string) => {
+    setExpandedChapters((prev) => {
+      const next = new Set(prev);
+      if (next.has(chapterId)) next.delete(chapterId);
+      else next.add(chapterId);
+      return next;
+    });
+  };
   const createChapter = api.course.createChapter.useMutation({
     onSuccess: () => {
       void utils.course.listChapters.invalidate({ courseId: initialCourse.id });
@@ -254,8 +273,12 @@ export function CourseManagerClient({
     | CourseData
     | undefined;
   const lessonsSorted: LessonWithDescription[] =
-    [...(course?.lessons ?? [])].sort((a, b) => a.order - b.order) ?? [];
-  const chaptersSorted = [...(chaptersQuery.data ?? [])].sort((a, b) => a.order - b.order);
+    [...(course?.lessons ?? [])]
+      .filter((l) => !l.chapterId)
+      .sort((a, b) => a.order - b.order) ?? [];
+  const chaptersSorted = [...(chaptersQuery.data ?? [])].sort(
+    (a, b) => a.order - b.order,
+  );
 
   const [activeLessonId, setActiveLessonId] = React.useState<string | null>(
     lessonsSorted[0]?.id ?? null,
@@ -263,7 +286,9 @@ export function CourseManagerClient({
 
   // Chapter management state
   const [showChapterForm, setShowChapterForm] = React.useState(false);
-  const [editingChapterId, setEditingChapterId] = React.useState<string | null>(null);
+  const [editingChapterId, setEditingChapterId] = React.useState<string | null>(
+    null,
+  );
   const [chapterForm, setChapterForm] = React.useState({
     title: "",
     slug: "",
@@ -280,9 +305,18 @@ export function CourseManagerClient({
     setCourseTitleDirty(false);
   }, [course?.id]);
 
+  // Aggregate all lessons (standalone + chapter lessons)
+  const allLessons: LessonWithDescription[] = React.useMemo(() => {
+    if (!course) return [];
+    return [
+      ...lessonsSorted,
+      ...course.chapters.flatMap((ch) => ch.lessons as LessonWithDescription[]),
+    ];
+  }, [course, lessonsSorted]);
+
   // Active lesson local state
-  const activeLesson =
-    lessonsSorted.find((l) => l.id === activeLessonId) ?? null;
+  const activeLesson = allLessons.find((l) => l.id === activeLessonId) ?? null;
+
   const [lessonMeta, setLessonMeta] = React.useState<{
     id: string | null;
     title: string;
@@ -430,12 +464,15 @@ export function CourseManagerClient({
     return `${base}-${i}`;
   }
 
-  function handleCreateLesson() {
+  function handleCreateLesson(chapterId?: string) {
     if (!course) return;
-    const order = lessonsSorted.length;
+    const order = chapterId
+      ? (course.chapters.find((c) => c.id === chapterId)?.lessons.length ?? 0)
+      : lessonsSorted.length;
     const slugBase = generateUntitledSlug("lesson");
     addLesson.mutate({
       courseId: course.id,
+      chapterId,
       data: {
         title: "Untitled",
         slug: slugBase,
@@ -446,6 +483,7 @@ export function CourseManagerClient({
         contentJson: "",
         youtubeId: "",
         order,
+        chapterId,
       },
     });
   }
@@ -470,6 +508,7 @@ export function CourseManagerClient({
   function handleDragStart(e: React.DragEvent, id: string | undefined) {
     if (typeof id === "string") {
       setDraggingLessonId(id);
+      e.dataTransfer.setData("text/plain", id);
     }
     e.dataTransfer.effectAllowed = "move";
   }
@@ -487,6 +526,23 @@ export function CourseManagerClient({
       draggingLessonId === dropId
     )
       return;
+
+    // Check if we're dropping on a chapter
+    const dropChapter = chaptersSorted.find((c) => c.id === dropId);
+    if (dropChapter) {
+      // Move lesson to chapter
+      updateLesson.mutate({
+        id: draggingLessonId,
+        data: {
+          chapterId: dropChapter.id,
+          order: dropChapter.lessons.length, // Add to end of chapter
+        },
+      });
+      setDraggingLessonId(null);
+      return;
+    }
+
+    // Regular lesson reordering within same chapter
     const ids = lessonsSorted
       .map((l) => l.id)
       .filter((id): id is string => typeof id === "string");
@@ -535,7 +591,7 @@ export function CourseManagerClient({
     if (!course) return;
 
     const order = editingChapterId
-      ? chaptersSorted.find(c => c.id === editingChapterId)?.order || 0
+      ? chaptersSorted.find((c) => c.id === editingChapterId)?.order || 0
       : chaptersSorted.length;
 
     if (editingChapterId) {
@@ -560,7 +616,12 @@ export function CourseManagerClient({
   }
 
   function handleDeleteChapter(id: string) {
-    if (!confirm("Delete this chapter? All lessons in this chapter will be moved to the main course.")) return;
+    if (
+      !confirm(
+        "Delete this chapter? All lessons in this chapter will be moved to the main course.",
+      )
+    )
+      return;
     deleteChapter.mutate({ id });
   }
 
@@ -574,19 +635,32 @@ export function CourseManagerClient({
     e.dataTransfer.dropEffect = "move";
   }
 
-  function handleChapterDrop(e: React.DragEvent, dropId: string) {
+  function handleChapterReorder(e: React.DragEvent, dropId: string) {
     e.preventDefault();
     const draggedId = e.dataTransfer.getData("text/plain");
     if (!draggedId || draggedId === dropId) return;
 
-    const draggedIndex = chaptersSorted.findIndex(c => c.id === draggedId);
-    const dropIndex = chaptersSorted.findIndex(c => c.id === dropId);
+    const draggedIndex = chaptersSorted.findIndex((c) => c.id === draggedId);
 
-    if (draggedIndex === -1 || dropIndex === -1) return;
+    // If the dragged item is NOT a chapter, treat it as a lesson being moved into this chapter
+    if (draggedIndex === -1) {
+      updateLesson.mutate({
+        id: draggedId,
+        data: {
+          chapterId: dropId,
+          order:
+            chaptersSorted.find((c) => c.id === dropId)?.lessons.length ?? 0,
+        },
+      });
+      return;
+    }
+
+    const dropIndex = chaptersSorted.findIndex((c) => c.id === dropId);
+    if (dropIndex === -1) return;
 
     const newOrder = [...chaptersSorted]
-      .map(c => c.id)
-      .filter(id => id !== draggedId);
+      .map((c) => c.id)
+      .filter((id) => id !== draggedId);
 
     newOrder.splice(dropIndex, 0, draggedId);
 
@@ -649,39 +723,53 @@ export function CourseManagerClient({
         <nav className="space-y-1">
           {/* Chapter Form */}
           {showChapterForm && (
-            <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
+            <div className="bg-muted/50 mb-4 rounded-lg border p-3">
               <form onSubmit={handleChapterFormSubmit} className="space-y-3">
                 <div className="space-y-1">
                   <input
                     value={chapterForm.title}
-                    onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
+                    onChange={(e) =>
+                      setChapterForm({ ...chapterForm, title: e.target.value })
+                    }
                     placeholder="Chapter title"
-                    className="w-full bg-background rounded-md border px-3 py-2 text-sm"
+                    className="bg-background w-full rounded-md border px-3 py-2 text-sm"
                     required
                   />
                 </div>
                 <div className="space-y-1">
                   <input
                     value={chapterForm.slug}
-                    onChange={(e) => setChapterForm({ ...chapterForm, slug: normalizeSlug(e.target.value) })}
+                    onChange={(e) =>
+                      setChapterForm({
+                        ...chapterForm,
+                        slug: normalizeSlug(e.target.value),
+                      })
+                    }
                     placeholder="chapter-slug"
-                    className="w-full bg-background rounded-md border px-3 py-2 text-sm"
+                    className="bg-background w-full rounded-md border px-3 py-2 text-sm"
                     required
                   />
                 </div>
                 <div className="space-y-1">
                   <textarea
                     value={chapterForm.description}
-                    onChange={(e) => setChapterForm({ ...chapterForm, description: e.target.value })}
+                    onChange={(e) =>
+                      setChapterForm({
+                        ...chapterForm,
+                        description: e.target.value,
+                      })
+                    }
                     placeholder="Chapter description"
-                    className="w-full bg-background rounded-md border px-3 py-2 text-sm resize-none"
+                    className="bg-background w-full resize-none rounded-md border px-3 py-2 text-sm"
                     rows={2}
                   />
                 </div>
                 <div className="space-y-1">
                   <FileUpload
                     currentImage={chapterForm.poster}
-                    onUpload={(url) => setChapterForm({ ...chapterForm, poster: url })}
+                    onUpload={(url) =>
+                      setChapterForm({ ...chapterForm, poster: url })
+                    }
                     placeholder="Upload chapter poster"
                     maxSizeText="5MB"
                   />
@@ -689,15 +777,18 @@ export function CourseManagerClient({
                 <div className="flex gap-2">
                   <button
                     type="submit"
-                    disabled={createChapter.status === "pending" || updateChapter.status === "pending"}
-                    className="bg-primary text-primary-foreground px-3 py-1 rounded text-xs font-medium"
+                    disabled={
+                      createChapter.status === "pending" ||
+                      updateChapter.status === "pending"
+                    }
+                    className="bg-primary text-primary-foreground rounded px-3 py-1 text-xs font-medium"
                   >
                     {editingChapterId ? "Update" : "Create"} Chapter
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowChapterForm(false)}
-                    className="px-3 py-1 rounded text-xs border"
+                    className="rounded border px-3 py-1 text-xs"
                   >
                     Cancel
                   </button>
@@ -713,113 +804,148 @@ export function CourseManagerClient({
                 draggable
                 onDragStart={(e) => handleChapterDragStart(e, chapter.id)}
                 onDragOver={handleChapterDragOver}
-                onDrop={(e) => handleChapterDrop(e, chapter.id)}
-                className="group flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 px-3 py-2 text-sm font-medium text-muted-foreground"
+                onDrop={(e) => handleChapterReorder(e, chapter.id)}
+                onClick={() => toggleChapter(chapter.id)}
+                className="group border-muted-foreground/30 text-muted-foreground hover:border-primary/50 flex cursor-pointer items-start gap-2 rounded-md border border-dashed px-3 py-2 text-sm font-medium transition-colors"
               >
                 <Folder size={14} />
-                <span className="flex-1 cursor-grab">{chapter.title}</span>
+                <span className="flex-1">{chapter.title}</span>
+                <span className="text-[10px] tracking-wide uppercase">
+                  {expandedChapters.has(chapter.id) ? "Hide" : "Show"}
+                </span>
                 <button
-                  onClick={() => handleEditChapter(chapter)}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditChapter(chapter);
+                  }}
+                  className="hover:bg-muted rounded p-1 opacity-0 group-hover:opacity-100"
                 >
                   <Edit size={12} />
                 </button>
                 <button
-                  onClick={() => handleDeleteChapter(chapter.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 text-destructive rounded"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteChapter(chapter.id);
+                  }}
+                  className="hover:bg-destructive/10 text-destructive rounded p-1 opacity-0 group-hover:opacity-100"
                 >
                   <Trash2 size={12} />
                 </button>
               </div>
 
               {/* Chapter lessons */}
-              {chapter.lessons.map((lesson, idx) => {
-                const isActive = lesson.id === activeLessonId;
-                const isCompleted = completedLessonIds.includes(lesson.id);
-                return (
-                  <div
-                    key={lesson.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, lesson.id)}
-                    onDragOver={(e) => handleDragOver(e, lesson.id)}
-                    onDrop={(e) => handleDrop(e, lesson.id)}
-                    onClick={() =>
-                      setActiveLessonId(
-                        typeof lesson.id === "string" ? lesson.id : null,
-                      )
-                    }
-                    className={
-                      "group flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm ml-4 " +
-                      (isActive
-                        ? "border-primary bg-primary/10"
-                        : "hover:border-accent hover:bg-accent border-transparent")
-                    }
-                  >
-                    <div className="flex flex-1 items-start gap-2">
-                      <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
-                        ⋮⋮
-                      </span>
-                      <span
-                        className={
-                          "flex-1 truncate text-xs " +
-                          (isActive ? "text-primary font-medium" : "")
-                        }
-                      >
-                        {idx + 1}. {lesson.title || "Untitled"}
-                        {lesson.description && (
-                          <div
-                            className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
-                            title={lesson.description}
-                          >
-                            {lesson.description}
-                          </div>
-                        )}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeLesson(lesson.id);
-                        }}
-                        className="hover:bg-destructive/10 border-destructive/50 text-destructive rounded border px-1.5 py-0.5 text-[10px] opacity-0 transition group-hover:opacity-100"
-                        title="Delete lesson"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                    {/* Completion toggle only for learners */}
-                    {isLearner && (
-                      <button
-                        className="ml-2"
-                        title={
-                          isCompleted ? "Mark as incomplete" : "Mark as completed"
-                        }
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isCompleted) {
-                            unmarkCompleted.mutate({ lessonId: lesson.id });
-                          } else {
-                            markCompleted.mutate({ lessonId: lesson.id });
+              {expandedChapters.has(chapter.id) &&
+                chapter.lessons.map((lesson, idx) => {
+                  const isActive = lesson.id === activeLessonId;
+                  const isCompleted = completedLessonIds.includes(lesson.id);
+                  return (
+                    <div
+                      key={lesson.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, lesson.id)}
+                      onDragOver={(e) => handleDragOver(e, lesson.id)}
+                      onDrop={(e) => handleDrop(e, lesson.id)}
+                      onClick={() =>
+                        setActiveLessonId(
+                          typeof lesson.id === "string" ? lesson.id : null,
+                        )
+                      }
+                      className={
+                        "group mx-2 flex w-full cursor-pointer items-start rounded-md border px-2.5 py-2 text-sm " +
+                        (isActive
+                          ? "border-primary bg-primary/10"
+                          : "hover:border-accent hover:bg-accent border-transparent")
+                      }
+                    >
+                      <div className="flex flex-1 items-start gap-2">
+                        <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
+                          ⋮⋮
+                        </span>
+                        <span
+                          className={
+                            "flex-1 truncate text-xs " +
+                            (isActive ? "text-primary font-medium" : "")
                           }
-                        }}
-                        aria-label={
-                          isCompleted ? "Mark as incomplete" : "Mark as completed"
-                        }
-                      >
-                        {isCompleted ? (
-                          <CheckCircle size={18} className="text-green-500" />
-                        ) : (
-                          <Circle size={18} className="text-gray-400" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+                        >
+                          {idx + 1}. {lesson.title || "Untitled"}
+                          {lesson.description && (
+                            <div
+                              className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                              title={lesson.description}
+                            >
+                              {lesson.description}
+                            </div>
+                          )}
+                        </span>
+                        <div className="flex gap-1 opacity-0 transition group-hover:opacity-100">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateLesson.mutate({
+                                id: lesson.id,
+                                data: {
+                                  chapterId: null,
+                                  order: lessonsSorted.length,
+                                },
+                              });
+                            }}
+                            className="hover:bg-muted rounded border px-1.5 py-0.5 text-[10px]"
+                            title="Remove from chapter"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                      {/* Completion toggle only for learners */}
+                      {isLearner && (
+                        <button
+                          className="ml-2"
+                          title={
+                            isCompleted
+                              ? "Mark as incomplete"
+                              : "Mark as completed"
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isCompleted) {
+                              unmarkCompleted.mutate({ lessonId: lesson.id });
+                            } else {
+                              markCompleted.mutate({ lessonId: lesson.id });
+                            }
+                          }}
+                          aria-label={
+                            isCompleted
+                              ? "Mark as incomplete"
+                              : "Mark as completed"
+                          }
+                        >
+                          {isCompleted ? (
+                            <CheckCircle size={18} className="text-green-500" />
+                          ) : (
+                            <Circle size={18} className="text-gray-400" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+              <button
+                onClick={() => handleCreateLesson(chapter.id)}
+                disabled={addLesson.status === "pending"}
+                className="text-foreground hover:bg-accent group mx-2 flex w-full items-center gap-2 rounded-md border border-dashed px-2.5 py-2 text-sm font-medium"
+              >
+                <Plus
+                  size={12}
+                  className="text-muted-foreground group-hover:text-foreground"
+                />
+                {addLesson.status === "pending" ? "Creating..." : "Add Lesson"}
+              </button>
             </div>
           ))}
 
           {/* Main course lessons */}
-          {course?.lessons?.length > 0 && (
+          {lessonsSorted.length > 0 && (
             <>
               {lessonsSorted.map((lesson, idx) => {
                 const isActive = lesson.id === activeLessonId;
@@ -837,7 +963,7 @@ export function CourseManagerClient({
                       )
                     }
                     className={
-                      "group flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm " +
+                      "group flex cursor-pointer items-start rounded-md border px-3 py-2 text-sm " +
                       (isActive
                         ? "border-primary bg-primary/10"
                         : "hover:border-accent hover:bg-accent border-transparent")
@@ -887,7 +1013,9 @@ export function CourseManagerClient({
                       <button
                         className="ml-2"
                         title={
-                          isCompleted ? "Mark as incomplete" : "Mark as completed"
+                          isCompleted
+                            ? "Mark as incomplete"
+                            : "Mark as completed"
                         }
                         onClick={(e) => {
                           e.stopPropagation();
@@ -898,7 +1026,9 @@ export function CourseManagerClient({
                           }
                         }}
                         aria-label={
-                          isCompleted ? "Mark as incomplete" : "Mark as completed"
+                          isCompleted
+                            ? "Mark as incomplete"
+                            : "Mark as completed"
                         }
                       >
                         {isCompleted ? (
@@ -914,14 +1044,14 @@ export function CourseManagerClient({
             </>
           )}
 
-          {(!chaptersSorted.length && !lessonsSorted.length) && (
+          {!chaptersSorted.length && !lessonsSorted.length && (
             <div className="text-muted-foreground text-xs">No lessons yet.</div>
           )}
 
           <button
             onClick={() => handleCreateChapter()}
             disabled={createChapter.status === "pending"}
-            className="text-foreground hover:bg-accent group flex w-full items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm font-medium"
+            className="text-foreground hover:bg-accent group flex w-full items-start gap-2 rounded-md border border-dashed px-3 py-2 text-sm font-medium"
           >
             <Folder
               size={16}
@@ -933,7 +1063,7 @@ export function CourseManagerClient({
           <button
             onClick={() => handleCreateLesson()}
             disabled={addLesson.status === "pending"}
-            className="text-foreground hover:bg-accent group flex w-full items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm font-medium"
+            className="text-foreground hover:bg-accent group flex w-full items-start gap-2 rounded-md border border-dashed px-3 py-2 text-sm font-medium"
           >
             <Plus
               size={16}

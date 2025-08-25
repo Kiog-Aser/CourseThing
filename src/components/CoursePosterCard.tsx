@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn } from "./ui";
 
 /**
@@ -34,6 +35,9 @@ export interface CoursePosterCardProps {
   coverImageUrl?: string | null;
   accentColor?: string | null;
   className?: string;
+  onClick?: () => void;
+  chapterCount?: number;
+  lessonCount?: number;
 }
 
 const LANGUAGE_FLAGS: Record<string, string> = {
@@ -90,6 +94,7 @@ function fallbackGradient(slug: string) {
 }
 
 export function CoursePosterCard(props: CoursePosterCardProps) {
+  const router = useRouter();
   const {
     slug,
     title,
@@ -99,6 +104,9 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
     coverImageUrl,
     accentColor,
     className,
+    onClick,
+    chapterCount,
+    lessonCount,
   } = props;
 
   const flag = languageFlag(language);
@@ -116,11 +124,20 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
       }
     : {};
 
-  return (
-    <Link
-      href={`/learn?course=${encodeURIComponent(slug)}`}
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else {
+      // Default navigation behavior
+      router.push(`/learn?course=${encodeURIComponent(slug)}`);
+    }
+  };
+
+  const cardContent = (
+    <div
       className={cn(
         "group focus-visible:ring-primary relative block w-[180px] shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+        "cursor-pointer",
         className,
       )}
       style={
@@ -128,6 +145,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
           "--accent": accent,
         } as React.CSSProperties
       }
+      onClick={handleClick}
     >
       <div
         className={cn(
@@ -135,7 +153,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
           "",
           "bg-neutral-900 text-white",
           "shadow-[0_4px_14px_-4px_rgba(0,0,0,0.5)]",
-          "transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_10px_30px_-6px_rgba(0,0,0,0.55)]",
+          "transition-transform duration-300 group-hover:-translate-y-1",
         )}
         style={gradientStyle}
       >
@@ -173,6 +191,19 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
           <p className="line-clamp-2 text-[11px] leading-tight text-white/70">
             {shortDescription}
           </p>
+          {(chapterCount !== undefined || lessonCount !== undefined) && (
+            <div className="text-[10px] text-white/60">
+              {chapterCount !== undefined && chapterCount > 0 && (
+                <span>{chapterCount} chapter{chapterCount !== 1 ? 's' : ''}</span>
+              )}
+              {chapterCount !== undefined && lessonCount !== undefined && chapterCount > 0 && lessonCount > 0 && (
+                <span> • </span>
+              )}
+              {lessonCount !== undefined && lessonCount > 0 && (
+                <span>{lessonCount} lesson{lessonCount !== 1 ? 's' : ''}</span>
+              )}
+            </div>
+          )}
           <div className="opacity-0 transition-opacity duration-300 group-hover:opacity-100">
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90">
               Start <ArrowRight size={12} />
@@ -180,8 +211,10 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
+
+  return cardContent;
 }
 
 export default CoursePosterCard;

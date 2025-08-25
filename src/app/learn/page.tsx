@@ -7,6 +7,9 @@ import {
   Loader2,
   TriangleAlert,
   Lock,
+  Folder,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
@@ -30,6 +33,15 @@ type LessonRecord = {
   order: number;
 };
 
+type ChapterRecord = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  order: number;
+  lessons: LessonRecord[];
+};
+
 type CourseRecord = {
   id: string;
   slug: string;
@@ -37,6 +49,7 @@ type CourseRecord = {
   language: string;
   description: string | null;
   lessons: LessonRecord[];
+  chapters: ChapterRecord[];
 };
 
 /* -------------------------------------------------------------------------- */
@@ -280,11 +293,27 @@ export default function LearnPage() {
   const [optimisticCompletedIds, setOptimisticCompletedIds] = useState<
     string[] | null
   >(null);
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(
+    new Set(),
+  );
   const courseSlug = search.get("course")?.trim() || "";
+  const chapterSlug = search.get("chapter")?.trim();
+
+  const toggleChapterExpansion = (chapterId: string) => {
+    const newExpanded = new Set(expandedChapters);
+    if (newExpanded.has(chapterId)) {
+      newExpanded.delete(chapterId);
+    } else {
+      newExpanded.add(chapterId);
+    }
+    setExpandedChapters(newExpanded);
+  };
 
   const courseQuery = api.course.bySlug.useQuery(
     { slug: courseSlug },
-    { enabled: !!courseSlug && courseSlug.length > 0 },
+    {
+      enabled: !!courseSlug && courseSlug.length > 0,
+    },
   );
 
   const course: CourseRecord | undefined = courseQuery.data as
@@ -293,7 +322,12 @@ export default function LearnPage() {
 
   const lessons: LessonRecord[] = useMemo(() => {
     if (!course) return [];
-    return [...course.lessons]
+    // Combine lessons from chapters and standalone lessons
+    const allLessons = [
+      ...course.lessons,
+      ...course.chapters.flatMap((chapter) => chapter.lessons),
+    ];
+    return allLessons
       .filter((l: LessonRecord) => l.status === "PUBLISHED")
       .sort((a: LessonRecord, b: LessonRecord) => a.order - b.order);
   }, [course]);
@@ -367,6 +401,24 @@ export default function LearnPage() {
       setActiveId(null);
       return;
     }
+
+    // Handle chapter URL parameter
+    if (chapterSlug && course) {
+      const targetChapter = course.chapters.find((c) => c.slug === chapterSlug);
+      if (targetChapter && targetChapter.lessons.length > 0) {
+        // Expand the chapter
+        setExpandedChapters((prev) => new Set([...prev, targetChapter.id]));
+        // Select first lesson in chapter if not already selected
+        if (
+          !activeId ||
+          !targetChapter.lessons.find((l) => l.id === activeId)
+        ) {
+          setActiveId(targetChapter.lessons[0]!.id);
+        }
+        return;
+      }
+    }
+
     // Find first incomplete lesson, else fallback to first lesson
     const firstIncomplete = lessons.find(
       (l) => !completedLessonIds.includes(l.id),
@@ -374,7 +426,7 @@ export default function LearnPage() {
     if (!activeId || !lessons.find((l) => l.id === activeId)) {
       setActiveId(firstIncomplete ? firstIncomplete.id : lessons[0]!.id);
     }
-  }, [lessons, activeId, completedLessonIds]);
+  }, [lessons, activeId, completedLessonIds, chapterSlug, course]);
 
   const active = lessons.find((l) => l.id === activeId) || null;
 
@@ -533,12 +585,191 @@ export default function LearnPage() {
             </p>
           </div>
           <nav className="space-y-1">
-            {lessons.map((lesson, idx) => {
+            {/* Chapters with lessons */}
+            {course?.chapters?.map((chapter) => {
+              const isExpanded = expandedChapters.has(chapter.id);
+              const chapterLessons = chapter.lessons.filter(
+                (l) => l.status === "PUBLISHED",
+              );
+
+              return (
+                <div key={chapter.id} className="space-y-1">
+                  <button
+                    onClick={() => toggleChapterExpansion(chapter.id)}
+                    className="group border-muted-foreground/30 text-muted-foreground hover:bg-accent/20 flex w-full items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm font-medium"
+                  >
+                    <Folder size={14} />
+                    <span className="flex-1 cursor-grab text-left">
+                      {chapter.title}
+                    </span>
+                    {isExpanded ? (
+                      <ChevronUp size={14} />
+                    ) : (
+                      <ChevronDown size={14} />
+                    )}
+                  </button>
+
+                  {/* Chapter lessons (only when expanded) */}
+                  {isExpanded &&
+                    chapterLessons.map((lesson, lessonIdx) => {
+                      const isActive = lesson.id === activeId;
+                      const isVideo =
+                        lesson.kind === "VIDEO" || !!lesson.youtubeId;
+                      const locked = false;
+                      const isCompleted = optimisticIds.includes(lesson.id);
+
+                      return (
+                        <button
+                          key={lesson.id}
+                          onClick={() => {
+                            if (locked) {
+                              setLockedAttempt(lesson);
+                              setActiveId(lessons[0]?.id ?? null);
+                              return;
+                            }
+                            setLockedAttempt(null);
+                            setActiveId(lesson.id);
+                          }}
+                          className={
+                            "group mx-3.5 flex w-60 items-center rounded-md border px-2.5 py-2 text-sm transition " +
+                            (isActive
+                              ? "border-primary bg-primary/10 text-primary"
+                              : locked
+                                ? "bg-background/60 border-border/40 text-foreground/70 hover:bg-accent/40 border-dashed"
+                                : "bg-background hover:border-accent hover:bg-accent border-transparent")
+                          }
+                        >
+                          <span className="text-muted-foreground mt-0.5 mr-2 cursor-grab text-xs font-semibold select-none">
+                            {lessonIdx + 1}
+                          </span>
+                          <span className="flex-1 text-left leading-snug">
+                            {lesson.title || "Untitled"}
+                            {lesson.description && (
+                              <div
+                                className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                                title={lesson.description}
+                                style={{
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  maxWidth: "100%",
+                                }}
+                              >
+                                {lesson.description}
+                              </div>
+                            )}
+                          </span>
+                          {locked ? (
+                            <Lock
+                              size={16}
+                              className={
+                                "mt-0.5 opacity-70 group-hover:opacity-100 " +
+                                (isActive
+                                  ? "text-primary"
+                                  : "text-muted-foreground")
+                              }
+                            />
+                          ) : isVideo ? (
+                            <PlayCircle
+                              size={16}
+                              className={
+                                "mt-0.5 opacity-70 group-hover:opacity-100 " +
+                                (isActive
+                                  ? "text-primary"
+                                  : "text-muted-foreground")
+                              }
+                            />
+                          ) : null}
+                          {/* Completion toggle */}
+                          <span
+                            className="ml-2 flex items-center justify-center rounded-full p-0.5 transition hover:bg-emerald-50"
+                            style={{ height: 20, width: 20, cursor: "pointer" }}
+                            title={
+                              isCompleted
+                                ? "Mark as incomplete"
+                                : "Mark as completed"
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isCompleted) {
+                                unmarkCompleted.mutate({ lessonId: lesson.id });
+                              } else {
+                                markCompleted.mutate({ lessonId: lesson.id });
+                              }
+                            }}
+                            aria-label={
+                              isCompleted
+                                ? "Mark as incomplete"
+                                : "Mark as completed"
+                            }
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                if (isCompleted) {
+                                  unmarkCompleted.mutate({
+                                    lessonId: lesson.id,
+                                  });
+                                } else {
+                                  markCompleted.mutate({ lessonId: lesson.id });
+                                }
+                              }
+                            }}
+                          >
+                            {isCompleted ? (
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 20 20"
+                                className="block"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <circle cx="10" cy="10" r="9" fill="#10b981" />
+                                <path
+                                  d="M6.5 10.5L9 13L14 8"
+                                  stroke="white"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  fill="none"
+                                />
+                              </svg>
+                            ) : (
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 20 20"
+                                className="block"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <circle
+                                  cx="10"
+                                  cy="10"
+                                  r="9"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                />
+                              </svg>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              );
+            })}
+
+            {/* Standalone lessons (not in chapters) */}
+            {course?.lessons?.map((lesson, idx) => {
               const isActive = lesson.id === activeId;
-              // Adaptive: show video icon if lesson has youtubeId or is VIDEO, else no icon
               const isVideo = lesson.kind === "VIDEO" || !!lesson.youtubeId;
-              const locked = false; // Temporarily disabled to bypass DB issues
+              const locked = false;
               const isCompleted = optimisticIds.includes(lesson.id);
+
               return (
                 <button
                   key={lesson.id}
@@ -552,7 +783,7 @@ export default function LearnPage() {
                     setActiveId(lesson.id);
                   }}
                   className={
-                    "group flex w-full items-center gap-3 rounded-md border px-3 py-3 text-left text-[15px] transition " +
+                    "group flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left text-[15px] transition " +
                     (isActive
                       ? "border-primary bg-primary/10 text-primary"
                       : locked
@@ -599,7 +830,7 @@ export default function LearnPage() {
                       }
                     />
                   ) : null}
-                  {/* Completion toggle - single circle or check */}
+                  {/* Completion toggle */}
                   <span
                     className="ml-2 flex items-center justify-center rounded-full p-0.5 transition hover:bg-emerald-50"
                     style={{ height: 24, width: 24, cursor: "pointer" }}
@@ -631,7 +862,6 @@ export default function LearnPage() {
                     }}
                   >
                     {isCompleted ? (
-                      // Centered checkmark inside a filled circle
                       <svg
                         width="20"
                         height="20"
@@ -650,7 +880,6 @@ export default function LearnPage() {
                         />
                       </svg>
                     ) : (
-                      // Simple outlined circle for incomplete
                       <svg
                         width="20"
                         height="20"

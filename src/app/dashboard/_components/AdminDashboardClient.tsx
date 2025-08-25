@@ -17,6 +17,7 @@ export interface AdminDashboardClientProps {
     title: string;
     description: string | null;
     language: string;
+    poster: string | null;
   }>;
 }
 
@@ -218,6 +219,12 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
                       className="hover:bg-background rounded-md border px-2 py-1 text-xs"
                     >
                       Manage
+                    </Link>
+                    <Link
+                      href={`/dashboard/course/${c.slug}/settings`}
+                      className="hover:bg-background rounded-md border px-2 py-1 text-xs"
+                    >
+                      Settings
                     </Link>
                     <button
                       onClick={() => {

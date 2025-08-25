@@ -20,6 +20,11 @@ type CourseWithChapters = {
     description: string | null;
     poster: string | null;
     order: number;
+    lessons: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+    }>;
   }>;
   lessons: Array<{
     id: string;
@@ -55,6 +60,14 @@ export default async function HomePage() {
             description: true,
             poster: true,
             order: true,
+            lessons: {
+              orderBy: { order: "asc" },
+              select: {
+                id: true,
+                title: true,
+                description: true,
+              },
+            },
           },
         },
         lessons: {

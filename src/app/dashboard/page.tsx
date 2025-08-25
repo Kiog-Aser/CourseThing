@@ -22,6 +22,7 @@ export default async function DashboardPage() {
     title: string;
     description: string | null;
     language: string;
+    poster: string | null;
   }[];
   try {
     courses = await (
@@ -34,6 +35,7 @@ export default async function DashboardPage() {
         title: true,
         description: true,
         language: true,
+        poster: true,
       },
     });
   } catch {
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
       slug: string;
       title: string;
       description: string | null;
+      poster: string | null;
     }> = await (
       db as unknown as { course: { findMany: typeof db.course.findMany } }
     ).course.findMany({
@@ -51,6 +54,7 @@ export default async function DashboardPage() {
         slug: true,
         title: true,
         description: true,
+        poster: true,
       },
     });
     courses = fallback.map((c) => ({ ...c, language: "general" })) as {
@@ -59,6 +63,7 @@ export default async function DashboardPage() {
       title: string;
       description: string | null;
       language: string;
+      poster: string | null;
     }[];
   }
 

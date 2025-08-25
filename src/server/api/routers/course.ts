@@ -43,6 +43,7 @@ const lessonBase = z.object({
   contentJson: z.string().optional(),
   youtubeId: z.string().optional(),
   order: z.number().int().min(0).default(0),
+  chapterId: z.string().optional(),
 });
 
 function ensureAdmin(email: string | null | undefined) {
@@ -163,6 +164,7 @@ export const courseRouter = createTRPCRouter({
                     youtubeId: true,
                     order: true,
                     authorId: true,
+                    chapterId: true,
                     createdAt: true,
                     updatedAt: true,
                   },
@@ -171,6 +173,7 @@ export const courseRouter = createTRPCRouter({
             },
             lessons: {
               orderBy: { order: "asc" },
+              where: { chapterId: null },
               select: {
                 id: true,
                 slug: true,
@@ -183,6 +186,7 @@ export const courseRouter = createTRPCRouter({
                 youtubeId: true,
                 order: true,
                 authorId: true,
+                chapterId: true,
                 createdAt: true,
                 updatedAt: true,
               },
@@ -190,13 +194,14 @@ export const courseRouter = createTRPCRouter({
           },
         });
       } catch (error) {
-        console.error('Database error in bySlug:', error);
+        console.error("Database error in bySlug:", error);
         // Fallback: try without description field and chapters
         return await ctx.db.course.findUnique({
           where: { slug: input.slug },
           include: {
             lessons: {
               orderBy: { order: "asc" },
+              where: { chapterId: null },
               select: {
                 id: true,
                 slug: true,
@@ -208,6 +213,7 @@ export const courseRouter = createTRPCRouter({
                 youtubeId: true,
                 order: true,
                 authorId: true,
+                chapterId: true,
                 createdAt: true,
                 updatedAt: true,
               },
@@ -289,18 +295,20 @@ export const courseRouter = createTRPCRouter({
       }
     }),
   addLesson: protectedProcedure
-    .input(z.object({
-      courseId: z.string().optional(),
-      chapterId: z.string().optional(),
-      data: lessonBase
-    }))
+    .input(
+      z.object({
+        courseId: z.string().optional(),
+        chapterId: z.string().optional(),
+        data: lessonBase,
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       ensureAdmin(ctx.session.user?.email);
 
       if (!input.courseId && !input.chapterId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Either courseId or chapterId must be provided"
+          message: "Either courseId or chapterId must be provided",
         });
       }
 
@@ -314,7 +322,7 @@ export const courseRouter = createTRPCRouter({
           },
         });
       } catch (error) {
-        console.error('Database error in addLesson:', error);
+        console.error("Database error in addLesson:", error);
         // Fallback: try without description field
         const { description, ...dataWithoutDescription } = input.data;
         return await ctx.db.lesson.create({
@@ -337,7 +345,7 @@ export const courseRouter = createTRPCRouter({
           data: input.data,
         });
       } catch (error) {
-        console.error('Database error in updateLesson:', error);
+        console.error("Database error in updateLesson:", error);
         // Fallback: try without description field
         const { description, ...dataWithoutDescription } = input.data;
         return await ctx.db.lesson.update({
@@ -383,6 +391,7 @@ export const courseRouter = createTRPCRouter({
               kind: true,
               status: true,
               order: true,
+              chapterId: true,
               createdAt: true,
             },
           },
@@ -429,8 +438,8 @@ export const courseRouter = createTRPCRouter({
           ctx.db.chapter.update({
             where: { id },
             data: { order: index },
-          })
-        )
+          }),
+        ),
       );
       return { success: true };
     }),
