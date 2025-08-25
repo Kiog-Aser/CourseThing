@@ -12,14 +12,21 @@ import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Moo - Interactive Language Learning Platform",
-  description: "Master new languages through structured, engaging courses. Experience free first lessons and track your progress as you build fluency step by step.",
-  keywords: ["language learning", "courses", "education", "online learning", "language courses"],
+  description:
+    "Master new languages through structured, engaging courses. Experience free first lessons and track your progress as you build fluency step by step.",
+  keywords: [
+    "language learning",
+    "courses",
+    "education",
+    "online learning",
+    "language courses",
+  ],
   authors: [{ name: "Moo Language Learning" }],
   creator: "Moo Language Learning",
   icons: [
     { rel: "icon", url: "/favicon.ico" },
     { rel: "icon", url: "/icon.svg", type: "image/svg+xml" },
-    { rel: "apple-touch-icon", url: "/icon.svg" }
+    { rel: "apple-touch-icon", url: "/icon.svg" },
   ],
 };
 
@@ -71,6 +78,11 @@ export default async function RootLayout({
             {children}
           </TRPCReactProvider>
         </SessionProvider>
+        <script
+          src="https://app.rybbit.io/api/script.js"
+          data-site-id="2206"
+          defer
+        ></script>
       </body>
     </html>
   );
