@@ -238,6 +238,12 @@ export default function HomePageClient({
                           hasChapters && toggleCourseExpansion(course.id)
                         }
                       />
+                      {/* Debug info */}
+                      {process.env.NODE_ENV === 'development' && course.poster && (
+                        <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
+                          Poster URL: {course.poster}
+                        </div>
+                      )}
 
                       {/* Chapter Posters (only when expanded) */}
                       {isExpanded &&
@@ -256,6 +262,12 @@ export default function HomePageClient({
                               (window.location.href = `/learn?course=${course.slug}&chapter=${chapter.slug}`)
                             }
                           />
+                          {/* Debug info */}
+                          {process.env.NODE_ENV === 'development' && chapter.poster && (
+                            <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
+                              Chapter Poster: {chapter.poster}
+                            </div>
+                          )}
                         ))}
                     </div>
                   </div>

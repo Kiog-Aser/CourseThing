@@ -165,6 +165,12 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
             sizes="180px"
             priority={false}
             className="object-cover"
+            onError={(e) => {
+              // Log the error for debugging
+              console.log('Image failed to load:', coverImageUrl, e);
+              // Hide the image on error to show the fallback gradient
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
           />
         )}
 
