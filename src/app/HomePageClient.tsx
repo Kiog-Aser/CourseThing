@@ -79,15 +79,15 @@ export default function HomePageClient({
         <div className="relative z-10 max-w-2xl space-y-6">
           <div className="bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-wide backdrop-blur">
             <BookOpen size={14} />
-            <span>Interactive language learning platform</span>
+            <span>Creative learning platform</span>
           </div>
           <h1 className="text-4xl leading-tight font-bold tracking-tight text-balance md:text-5xl">
-            Master new languages through structured, engaging courses
+            Unlock your creativity through engaging, interactive courses
           </h1>
           <p className="text-muted-foreground text-base leading-relaxed">
             Experience the first lesson of every course for free. Join our
-            community of language learners and track your progress as you build
-            fluency step by step.
+            community of creative minds and track your progress as you build
+            new skills step by step.
           </p>
           <div className="flex flex-wrap gap-4">
             <Link
@@ -169,7 +169,7 @@ export default function HomePageClient({
             <div className="flex items-end justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">
-                  {language.charAt(0).toUpperCase() + language.slice(1)} Course
+                  {language.charAt(0).toUpperCase() + language.slice(1)} Courses
                 </h2>
               </div>
             </div>
