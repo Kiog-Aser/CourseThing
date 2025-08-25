@@ -74,12 +74,12 @@ function ResendProvider(options: {
         await resend.emails.send({
           from: provider.from!,
           to: identifier,
-          subject: "Sign in to Moo",
-          text: `Sign in to Moo: ${url}`,
+          subject: "Sign in to CourseThing",
+          text: `Sign in to CourseThing: ${url}`,
           html: `
             <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
-              <h2 style="color: #333;">Sign in to Moo</h2>
-              <p>Click the button below to sign in to your account:</p>
+              <h2 style="color: #333;">Sign in to CourseThing</h2>
+              <p>Click the button below to sign in to your CourseThing account:</p>
               <a href="${url}" style="display: inline-block; background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
                 Sign In
               </a>
@@ -87,6 +87,9 @@ function ResendProvider(options: {
               <p style="word-break: break-all; color: #666;">${url}</p>
               <p style="color: #999; font-size: 12px; margin-top: 40px;">
                 This link will expire in ${Math.floor((options.maxAge ?? 24 * 60 * 60) / 60)} minutes.
+              </p>
+              <p style="color: #999; font-size: 12px; margin-top: 20px;">
+                Welcome to CourseThing!
               </p>
             </div>
           `,
