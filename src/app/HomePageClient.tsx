@@ -90,19 +90,34 @@ export default function HomePageClient({
             new skills step by step.
           </p>
           <div className="flex flex-wrap gap-4">
-            <Link
-              href="#courses"
+            <button
+              onClick={() => {
+                const coursesSection = document.getElementById('courses');
+                coursesSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
               className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded-md px-5 py-3 text-sm font-medium shadow transition hover:brightness-110"
             >
               Browse Courses <ArrowRight size={16} />
-            </Link>
+            </button>
             {isAuthed ? (
-              <Link
-                href="/learn"
-                className="hover:bg-accent inline-flex items-center gap-2 rounded-md border px-5 py-3 text-sm font-medium"
-              >
-                Continue Learning
-              </Link>
+              courses.length > 0 ? (
+                <Link
+                  href={`/learn?course=${courses[0].slug}`}
+                  className="hover:bg-accent inline-flex items-center gap-2 rounded-md border px-5 py-3 text-sm font-medium"
+                >
+                  Continue Learning
+                </Link>
+              ) : (
+                <button
+                  onClick={() => {
+                    const coursesSection = document.getElementById('courses');
+                    coursesSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="hover:bg-accent inline-flex items-center gap-2 rounded-md border px-5 py-3 text-sm font-medium"
+                >
+                  Browse Courses
+                </button>
+              )
             ) : (
               <>
                 <Link
@@ -201,24 +216,32 @@ export default function HomePageClient({
                         </p>
                       )}
                     </div>
-                    {hasChapters && (
-                      <div className="ml-4 flex items-center gap-2">
-                        <span className="text-muted-foreground group-hover:text-foreground text-xs">
-                          {isExpanded ? "Hide chapters" : "Show chapters"}
-                        </span>
-                        {isExpanded ? (
-                          <ChevronUp
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                        ) : (
-                          <ChevronDown
-                            size={16}
-                            className="text-muted-foreground"
-                          />
-                        )}
-                      </div>
-                    )}
+                    <div className="ml-4 flex items-center gap-2">
+                      <Link
+                        href={`/courses/${course.slug}`}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1 text-xs font-medium transition"
+                      >
+                        Start Course
+                      </Link>
+                      {hasChapters && (
+                        <>
+                          <span className="text-muted-foreground group-hover:text-foreground text-xs">
+                            {isExpanded ? "Hide chapters" : "Show chapters"}
+                          </span>
+                          {isExpanded ? (
+                            <ChevronUp
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                          ) : (
+                            <ChevronDown
+                              size={16}
+                              className="text-muted-foreground"
+                            />
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   {/* Course Poster (always visible) */}
@@ -236,9 +259,10 @@ export default function HomePageClient({
                           accentColor="#6366f1"
                           chapterCount={course.chapters.length}
                           lessonCount={course.lessons.length}
-                          onClick={() =>
-                            hasChapters && toggleCourseExpansion(course.id)
-                          }
+                          onClick={() => {
+                            // Navigate to course overview page
+                            window.location.href = `/courses/${course.slug}`;
+                          }}
                         />
                         {/* Debug info */}
                         {process.env.NODE_ENV === 'development' && course.poster && (
@@ -254,7 +278,7 @@ export default function HomePageClient({
                         course.chapters.map((chapter) => (
                           <div key={chapter.id}>
                             <CoursePosterCard
-                              slug={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
+                              slug={`/courses/${course.slug}`}
                               title={chapter.title}
                               language={course.language}
                               description={chapter.description}
@@ -262,9 +286,10 @@ export default function HomePageClient({
                               tagline={chapter.description}
                               accentColor="#8b5cf6"
                               lessonCount={chapter.lessons.length}
-                              onClick={() =>
-                                (window.location.href = `/learn?course=${course.slug}&chapter=${chapter.slug}`)
-                              }
+                              onClick={() => {
+                                // Navigate to course overview page
+                                window.location.href = `/courses/${course.slug}`;
+                              }}
                             />
                             {/* Debug info */}
                             {process.env.NODE_ENV === 'development' && chapter.poster && (
@@ -303,10 +328,10 @@ export default function HomePageClient({
                               </div>
                             </div>
                             <Link
-                              href={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
+                              href={`/courses/${course.slug}`}
                               className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition"
                             >
-                              Start Chapter
+                              View Course
                             </Link>
                           </div>
                         ))}
