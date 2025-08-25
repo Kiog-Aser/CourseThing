@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { Resend } from "resend";
 import type { EmailConfig } from "next-auth/providers/email";
 import { env } from "~/env";
+import { checkCreativeFunSubscription } from "./utils/creative-fun-subscription";
 
 import { db } from "~/server/db";
 // (UserRole import removed - using allow-list, no enum needed)
@@ -18,8 +19,9 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: {
       id: string;
+      role: string;
+      creativeFunSubscription?: boolean;
       // ...other properties
-      // role: UserRole;
     } & DefaultSession["user"];
   }
 
@@ -142,19 +144,30 @@ export const authConfig = {
         const isAdmin =
           !!user.email && adminEmails.includes(user.email.toLowerCase());
 
+        // Check Creative Fun subscription status
+        const hasCreativeFunSubscription = user.email
+          ? await checkCreativeFunSubscription(user.email)
+          : false;
+
         return {
           ...session,
           user: {
             ...session.user,
             id: user.id,
             role: isAdmin ? "ADMIN" : "USER",
+            creativeFunSubscription: hasCreativeFunSubscription,
           },
         };
       } catch (error) {
         console.error("Error in session callback (allow-list):", error);
         return {
           ...session,
-          user: { ...session.user, id: user.id, role: "USER" },
+          user: {
+            ...session.user,
+            id: user.id,
+            role: "USER",
+            creativeFunSubscription: false,
+          },
         };
       }
     },

@@ -14,6 +14,7 @@ import {
 import { useSearchParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
+import CreativeFunSubscriptionGuard from "~/components/CreativeFunSubscriptionGuard";
 import confetti from "canvas-confetti";
 
 /* -------------------------------------------------------------------------- */
@@ -512,7 +513,7 @@ export default function LearnPage() {
   }
 
   return (
-    <>
+    <CreativeFunSubscriptionGuard>
       {/* Congrats Modal */}
       {showCongrats && (
         <div
@@ -1123,6 +1124,6 @@ export default function LearnPage() {
           </div>
         </main>
       </div>
-    </>
+    </CreativeFunSubscriptionGuard>
   );
 }

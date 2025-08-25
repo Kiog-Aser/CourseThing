@@ -32,12 +32,12 @@ type CourseWithChapters = {
   }>;
 };
 
-function groupByLanguage(courses: CourseWithChapters[]) {
+function groupByCategory(courses: CourseWithChapters[]) {
   const map = new Map<string, CourseWithChapters[]>();
   for (const c of courses) {
-    const lang = c.language?.trim() || "unknown";
-    if (!map.has(lang)) map.set(lang, []);
-    map.get(lang)!.push(c);
+    const category = c.language?.trim() || "general";
+    if (!map.has(category)) map.set(category, []);
+    map.get(category)!.push(c);
   }
   return Array.from(map.entries()).sort(([a], [b]) =>
     a.localeCompare(b, undefined, { sensitivity: "base" }),
@@ -60,7 +60,7 @@ export default function HomePageClient({
   );
   const [courses] = useState<CourseWithChapters[]>(initialCourses);
 
-  const grouped = groupByLanguage(courses);
+  const grouped = groupByCategory(courses);
 
   const toggleCourseExpansion = (courseId: string) => {
     const newExpanded = new Set(expandedCourses);
@@ -79,22 +79,20 @@ export default function HomePageClient({
         <div className="relative z-10 max-w-2xl space-y-6">
           <div className="bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-wide backdrop-blur">
             <BookOpen size={14} />
-            <span>Interactive language learning platform</span>
+            <span>Creative Fun Course Platform</span>
           </div>
           <h1 className="text-4xl leading-tight font-bold tracking-tight text-balance md:text-5xl">
-            Master new languages through structured, engaging courses
+            Access premium courses from Creative Fun service
           </h1>
           <p className="text-muted-foreground text-base leading-relaxed">
-            Experience the first lesson of every course for free. Join our
-            community of language learners and track your progress as you build
-            fluency step by step.
+            Access exclusive courses designed by Creative Fun experts. Subscribe to our service and unlock premium content to enhance your creative journey.
           </p>
           <div className="flex flex-wrap gap-4">
             <Link
               href="#courses"
               className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded-md px-5 py-3 text-sm font-medium shadow transition hover:brightness-110"
             >
-              Browse Courses <ArrowRight size={16} />
+              Explore Courses <ArrowRight size={16} />
             </Link>
             {isAuthed ? (
               <Link
@@ -109,7 +107,7 @@ export default function HomePageClient({
                   href="/signup"
                   className="hover:bg-accent inline-flex items-center gap-2 rounded-md border px-5 py-3 text-sm font-medium"
                 >
-                  Create Free Account
+                  Subscribe to Creative Fun
                 </Link>
                 <Link
                   href="/signin"
@@ -130,8 +128,7 @@ export default function HomePageClient({
           </div>
           {!isAuthed && (
             <p className="text-muted-foreground/80 text-xs">
-              You are viewing as a guest. Lessons after #1 will ask you to sign
-              in.
+              You are viewing as a guest. Subscribe to Creative Fun to unlock all premium content.
             </p>
           )}
         </div>
@@ -164,12 +161,12 @@ export default function HomePageClient({
 
       {/* Expandable Course Sections */}
       <div id="courses" className="mt-12 space-y-16">
-        {grouped.map(([language, courseList]) => (
-          <section key={language} className="scroll-mt-24">
+        {grouped.map(([category, courseList]) => (
+          <section key={category} className="scroll-mt-24">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">
-                  {language.charAt(0).toUpperCase() + language.slice(1)} Course
+                  {category.charAt(0).toUpperCase() + category.slice(1)} Courses
                 </h2>
               </div>
             </div>

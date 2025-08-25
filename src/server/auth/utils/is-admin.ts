@@ -5,6 +5,7 @@
  * the comma‑separated allow‑list in the `ADMIN_EMAILS` environment variable.
  *
  * This removes any dependency on a persisted database role flag; access control
+* For Creative Fun subscription verification
  * becomes configuration-driven and predictable. Usage:
  *
  *   import { isAdminEmail } from "~/server/auth/utils/is-admin";
