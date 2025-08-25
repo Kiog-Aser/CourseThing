@@ -129,10 +129,12 @@ export default function CourseOverviewPage() {
               <ArrowLeft size={20} />
             </Link>
             <div className="flex-1">
-              <h1 className="text-2xl font-bold tracking-tight">{course.title}</h1>
-              <p className="text-muted-foreground text-sm mt-1">
-                {course.description || "No description available"}
-              </p>
+              <h1 className="text-3xl font-bold tracking-tight">{course.title}</h1>
+              {course.description && (
+                <p className="text-muted-foreground text-lg mt-2">
+                  {course.description}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -140,25 +142,7 @@ export default function CourseOverviewPage() {
 
       <div className="mx-auto max-w-4xl px-5 py-8">
         <div className="space-y-8">
-          {/* Course Stats */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="bg-muted/30 rounded-lg border p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{totalLessons}</div>
-              <div className="text-muted-foreground text-sm">
-                {totalLessons === 1 ? 'Lesson' : 'Lessons'}
-              </div>
-            </div>
-            <div className="bg-muted/30 rounded-lg border p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{course.chapters.length}</div>
-              <div className="text-muted-foreground text-sm">
-                {course.chapters.length === 1 ? 'Chapter' : 'Chapters'}
-              </div>
-            </div>
-            <div className="bg-muted/30 rounded-lg border p-4 text-center">
-              <div className="text-2xl font-bold text-primary">{course.language}</div>
-              <div className="text-muted-foreground text-sm">Language</div>
-            </div>
-          </div>
+
 
           {/* Start Course Button */}
           <div className="flex justify-center">

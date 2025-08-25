@@ -1002,7 +1002,7 @@ export function CourseManagerClient({
                           e.stopPropagation();
                           removeLesson(lesson.id);
                         }}
-                        className="hover:bg-destructive/10 border-destructive/50 text-destructive rounded border px-1.5 py-0.5 text-[10px] opacity-0 transition group-hover:opacity-100"
+                        className="hover:bg-destructive/10 border-destructive/50 text-destructive rounded border px-1.5 py-0.5 text-[10px] opacity-60 hover:opacity-100 transition"
                         title="Delete lesson"
                       >
                         <Trash2 size={12} />

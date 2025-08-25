@@ -5,7 +5,6 @@ import { Resend } from "resend";
 import type { EmailConfig } from "next-auth/providers/email";
 import { env } from "~/env";
 import { checkCreativeFunCustomer } from "./utils/creative-fun-subscription";
-
 import { db } from "~/server/db";
 // (UserRole import removed - using allow-list, no enum needed)
 
@@ -21,6 +20,8 @@ declare module "next-auth" {
       id: string;
       role: string;
       creativeFunSubscription?: boolean;
+      creativeFunCustomer?: boolean;
+      customerVerifiedAt?: Date;
       // ...other properties
     } & DefaultSession["user"];
   }
@@ -144,10 +145,54 @@ export const authConfig = {
         const isAdmin =
           !!user.email && adminEmails.includes(user.email.toLowerCase());
 
-        // Check CreatiFun customer status
-        const isCreativeFunCustomer = user.email
-          ? await checkCreativeFunCustomer(user.email)
-          : false;
+        // Check CreatiFun customer status with caching
+        let isCreativeFunCustomer = false;
+
+        if (user.email) {
+          // First check cached status (if exists and not older than 24 hours)
+          if (user.creativeFunCustomer !== null && user.customerVerifiedAt) {
+            const cacheAge = Date.now() - user.customerVerifiedAt.getTime();
+            const cacheValid = cacheAge < 24 * 60 * 60 * 1000; // 24 hours
+
+            if (cacheValid) {
+              isCreativeFunCustomer = user.creativeFunCustomer;
+            } else {
+              // Cache is stale, fetch fresh data
+              isCreativeFunCustomer = await checkCreativeFunCustomer(user.email);
+
+              // Update cache in database
+              try {
+                await db.user.update({
+                  where: { id: user.id },
+                  data: {
+                    creativeFunCustomer: isCreativeFunCustomer,
+                    customerVerifiedAt: new Date(),
+                  },
+                });
+              } catch (error) {
+                console.error("Failed to update customer cache:", error);
+                // Continue with the fresh data even if cache update fails
+              }
+            }
+          } else {
+            // No cache exists, fetch and cache
+            isCreativeFunCustomer = await checkCreativeFunCustomer(user.email);
+
+            // Update cache in database
+            try {
+              await db.user.update({
+                where: { id: user.id },
+                data: {
+                  creativeFunCustomer: isCreativeFunCustomer,
+                  customerVerifiedAt: new Date(),
+                },
+              });
+            } catch (error) {
+              console.error("Failed to update customer cache:", error);
+              // Continue with the fresh data even if cache update fails
+            }
+          }
+        }
 
         return {
           ...session,
@@ -156,6 +201,8 @@ export const authConfig = {
             id: user.id,
             role: isAdmin ? "ADMIN" : "USER",
             creativeFunSubscription: isCreativeFunCustomer,
+            creativeFunCustomer: isCreativeFunCustomer,
+            customerVerifiedAt: user.customerVerifiedAt,
           },
         };
       } catch (error) {
@@ -167,6 +214,8 @@ export const authConfig = {
             id: user.id,
             role: "USER",
             creativeFunSubscription: false,
+            creativeFunCustomer: false,
+            customerVerifiedAt: null,
           },
         };
       }
