@@ -259,6 +259,7 @@ export default function HomePageClient({
                           accentColor="#6366f1"
                           chapterCount={course.chapters.length}
                           lessonCount={course.lessons.length}
+                          variant="course"
                           onClick={() => {
                             // Navigate to course overview page
                             window.location.href = `/courses/${course.slug}`;
@@ -286,6 +287,7 @@ export default function HomePageClient({
                               tagline={chapter.description}
                               accentColor="#8b5cf6"
                               lessonCount={chapter.lessons.length}
+                              variant="chapter"
                               onClick={() => {
                                 // Navigate to course overview page
                                 window.location.href = `/courses/${course.slug}`;

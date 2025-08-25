@@ -38,6 +38,7 @@ export interface CoursePosterCardProps {
   onClick?: () => void;
   chapterCount?: number;
   lessonCount?: number;
+  variant?: 'course' | 'chapter'; // New prop to distinguish between course and chapter posters
 }
 
 const LANGUAGE_FLAGS: Record<string, string> = {
@@ -107,6 +108,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
     onClick,
     chapterCount,
     lessonCount,
+    variant = 'course', // Default to course variant
   } = props;
 
   const flag = languageFlag(language);
@@ -174,35 +176,34 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
           />
         )}
 
-        {/* Subtle overlay gradient for better text readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        {/* Show overlay and content based on variant */}
+        {variant === 'chapter' && (
+          <>
+            {/* Subtle overlay gradient for better text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-        {/* Content */}
-        <div className="absolute inset-x-4 bottom-4 space-y-2">
-          <h3 className="line-clamp-2 text-lg leading-tight font-bold text-white drop-shadow-lg">
-            {title}
-          </h3>
-          <p className="line-clamp-2 text-sm leading-tight text-white/80">
-            {shortDescription}
-          </p>
-          {(chapterCount !== undefined || lessonCount !== undefined) && (
-            <div className="text-xs text-white/70 font-medium">
-              {chapterCount !== undefined && chapterCount > 0 && (
-                <span>{chapterCount} chapter{chapterCount !== 1 ? 's' : ''}</span>
-              )}
-              {chapterCount !== undefined && lessonCount !== undefined && chapterCount > 0 && lessonCount > 0 && (
-                <span> • </span>
-              )}
+            {/* Content for chapters */}
+            <div className="absolute inset-x-4 bottom-4 space-y-2">
+              <h3 className="line-clamp-2 text-lg leading-tight font-bold text-white drop-shadow-lg">
+                {title}
+              </h3>
+              <p className="line-clamp-2 text-sm leading-tight text-white/80">
+                {shortDescription}
+              </p>
               {lessonCount !== undefined && lessonCount > 0 && (
-                <span>{lessonCount} lesson{lessonCount !== 1 ? 's' : ''}</span>
+                <div className="text-xs text-white/70 font-medium">
+                  {lessonCount} lesson{lessonCount !== 1 ? 's' : ''}
+                </div>
               )}
             </div>
-          )}
-          <div className="opacity-0 transition-all duration-300 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0">
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
-              Start Course <ArrowRight size={14} />
-            </span>
-          </div>
+          </>
+        )}
+
+        {/* Hover button for both course and chapter posters */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-300 group-hover:opacity-100">
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
+            {variant === 'course' ? 'Start Course' : 'View Chapter'} <ArrowRight size={14} />
+          </span>
         </div>
       </div>
     </div>
