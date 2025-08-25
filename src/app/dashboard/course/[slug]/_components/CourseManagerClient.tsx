@@ -218,8 +218,12 @@ export function CourseManagerClient({
   });
   const deleteLesson = api.course.deleteLesson.useMutation({
     onSuccess: () => {
+      console.log("Delete lesson mutation successful");
       void utils.course.bySlug.invalidate({ slug });
       void utils.course.listChapters.invalidate({ courseId: initialCourse.id });
+    },
+    onError: (error) => {
+      console.error("Delete lesson mutation failed:", error);
     },
   });
 
@@ -559,11 +563,21 @@ export function CourseManagerClient({
 
   function removeLesson(id: string) {
     if (!confirm("Delete this lesson?")) return;
-    deleteLesson.mutate({ id });
-    if (activeLessonId === id) {
-      const nextLesson = lessonsSorted.find((l) => l.id !== id);
-      setActiveLessonId(nextLesson ? nextLesson.id : null);
-    }
+
+    console.log("Deleting lesson:", id);
+    deleteLesson.mutate({ id }, {
+      onSuccess: () => {
+        console.log("Lesson deleted successfully");
+        if (activeLessonId === id) {
+          const nextLesson = lessonsSorted.find((l) => l.id !== id);
+          setActiveLessonId(nextLesson ? nextLesson.id : null);
+        }
+      },
+      onError: (error) => {
+        console.error("Failed to delete lesson:", error);
+        alert("Failed to delete lesson. Please try again.");
+      }
+    });
   }
 
   /* --------------------------- Chapter Operations --------------------------- */
@@ -1002,10 +1016,10 @@ export function CourseManagerClient({
                           e.stopPropagation();
                           removeLesson(lesson.id);
                         }}
-                        className="hover:bg-destructive/10 border-destructive/50 text-destructive rounded border px-1.5 py-0.5 text-[10px] opacity-60 hover:opacity-100 transition"
+                        className="hover:bg-red-500/20 text-red-500 hover:text-red-600 rounded p-1 transition-colors opacity-80 hover:opacity-100"
                         title="Delete lesson"
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                     {/* Completion toggle only for learners */}
