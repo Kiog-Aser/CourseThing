@@ -11,18 +11,19 @@ import React from "react";
 import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
-  title: "CourseThing - Interactive Language Learning Platform",
+  title: "CreatiFun - Creative Learning Platform",
   description:
-    "Master new languages through structured, engaging courses. Experience free first lessons and track your progress as you build fluency step by step.",
+    "Unlock your creativity through engaging, interactive courses. Experience free first lessons and track your progress as you build new skills step by step.",
   keywords: [
-    "language learning",
+    "creative learning",
     "courses",
     "education",
     "online learning",
-    "language courses",
+    "skill development",
+    "creativity",
   ],
-  authors: [{ name: "CourseThing" }],
-  creator: "CourseThing",
+  authors: [{ name: "CreatiFun" }],
+  creator: "CreatiFun",
   icons: [
     { rel: "icon", url: "/favicon.ico" },
     { rel: "icon", url: "/icon.svg", type: "image/svg+xml" },
@@ -49,7 +50,7 @@ export default async function RootLayout({
           <TRPCReactProvider>
             <header className="flex items-center justify-between border-b px-4 py-2 text-sm">
               <Link href="/" className="font-semibold">
-                CourseThing
+                CreatiFun
               </Link>
               <nav className="flex items-center gap-3">
                 <Link href="/learn">Learn</Link>

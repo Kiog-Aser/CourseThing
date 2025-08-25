@@ -121,7 +121,7 @@ export default function SignInPage() {
   return (
     <AuthShell
       title="Welcome back"
-      description="Sign in to continue to CourseThing"
+      description="Sign in to continue to CreatiFun"
       brand={<LogIn className="h-6 w-6" />}
       footer={
         <div className="space-y-3">

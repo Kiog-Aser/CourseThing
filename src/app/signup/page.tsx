@@ -107,7 +107,7 @@ export default function SignUpPage() {
   return (
     <AuthShell
       title="Create your account"
-      description="Start learning with CourseThing"
+      description="Start learning with CreatiFun"
       brand={<UserPlus className="h-6 w-6" />}
       footer={
         <div className="space-y-3">
