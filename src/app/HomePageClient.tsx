@@ -224,50 +224,55 @@ export default function HomePageClient({
                   {/* Course Poster (always visible) */}
                   <div className="-mx-4 overflow-x-auto px-4 pb-2">
                     <div className="flex gap-6">
-                      <CoursePosterCard
-                        slug={course.slug}
-                        title={course.title}
-                        language={course.language}
-                        description={course.description}
-                        coverImageUrl={course.poster}
-                        tagline={course.description}
-                        accentColor="#6366f1"
-                        chapterCount={course.chapters.length}
-                        lessonCount={course.lessons.length}
-                        onClick={() =>
-                          hasChapters && toggleCourseExpansion(course.id)
-                        }
-                      />
-                      {/* Debug info */}
-                      {process.env.NODE_ENV === 'development' && course.poster && (
-                        <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
-                          Poster URL: {course.poster}
-                        </div>
-                      )}
+                      <div>
+                                              <div>
+                        <CoursePosterCard
+                          slug={course.slug}
+                          title={course.title}
+                          language={course.language}
+                          description={course.description}
+                          coverImageUrl={course.poster}
+                          tagline={course.description}
+                          accentColor="#6366f1"
+                          chapterCount={course.chapters.length}
+                          lessonCount={course.lessons.length}
+                          onClick={() =>
+                            hasChapters && toggleCourseExpansion(course.id)
+                          }
+                        />
+                        {/* Debug info */}
+                        {process.env.NODE_ENV === 'development' && course.poster && (
+                          <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
+                            Poster URL: {course.poster}
+                          </div>
+                        )}
+                      </div>
+                      </div>
 
                       {/* Chapter Posters (only when expanded) */}
                       {isExpanded &&
                         course.chapters.map((chapter) => (
-                          <CoursePosterCard
-                            key={chapter.id}
-                            slug={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
-                            title={chapter.title}
-                            language={course.language}
-                            description={chapter.description}
-                            coverImageUrl={chapter.poster}
-                            tagline={chapter.description}
-                            accentColor="#8b5cf6"
-                            lessonCount={chapter.lessons.length}
-                            onClick={() =>
-                              (window.location.href = `/learn?course=${course.slug}&chapter=${chapter.slug}`)
-                            }
-                          />
-                          {/* Debug info */}
-                          {process.env.NODE_ENV === 'development' && chapter.poster && (
-                            <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
-                              Chapter Poster: {chapter.poster}
-                            </div>
-                          )}
+                          <div key={chapter.id}>
+                            <CoursePosterCard
+                              slug={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
+                              title={chapter.title}
+                              language={course.language}
+                              description={chapter.description}
+                              coverImageUrl={chapter.poster}
+                              tagline={chapter.description}
+                              accentColor="#8b5cf6"
+                              lessonCount={chapter.lessons.length}
+                              onClick={() =>
+                                (window.location.href = `/learn?course=${course.slug}&chapter=${chapter.slug}`)
+                              }
+                            />
+                            {/* Debug info */}
+                            {process.env.NODE_ENV === 'development' && chapter.poster && (
+                              <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
+                                Chapter Poster: {chapter.poster}
+                              </div>
+                            )}
+                          </div>
                         ))}
                     </div>
                   </div>
