@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
+import { put } from '@vercel/blob';
 import { auth } from '~/server/auth';
 import { isAdminEmail } from '~/server/auth/utils/is-admin';
 
@@ -48,24 +46,21 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    const extension = path.extname(file.name);
-    const filename = `${timestamp}-${random}${extension}`;
+    const extension = file.name.split('.').pop() || 'png';
+    const filename = `poster-${timestamp}-${random}.${extension}`;
 
-    // Ensure uploads directory exists
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'posters');
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
-    // Convert file to buffer and save
+    // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const filepath = path.join(uploadsDir, filename);
 
-    await writeFile(filepath, buffer);
+    // Upload to Vercel Blob storage
+    const blob = await put(filename, buffer, {
+      contentType: file.type,
+      access: 'public',
+    });
 
-    // Return the public URL
-    const url = `/uploads/posters/${filename}`;
+    // Return the blob URL
+    const url = blob.url;
 
     return NextResponse.json({
       success: true,
