@@ -9,6 +9,7 @@ import { auth, signIn, signOut } from "~/server/auth";
 import { isAdminEmail } from "~/server/auth/utils/is-admin";
 import React from "react";
 import { SessionProvider } from "next-auth/react";
+import { LearnButton } from "~/components/LearnButton";
 
 export const metadata: Metadata = {
   title: "CreatiFun - Creative Learning Platform",
@@ -53,7 +54,7 @@ export default async function RootLayout({
                 CreatiFun
               </Link>
               <nav className="flex items-center gap-3">
-                <Link href="/learn">Learn</Link>
+                <LearnButton isAuthed={!!session?.user} />
                 {isAdmin && <Link href="/dashboard">Dashboard</Link>}
                 {session?.user ? (
                   <form
