@@ -142,19 +142,6 @@ export default function CourseOverviewPage() {
 
       <div className="mx-auto max-w-4xl px-5 py-8">
         <div className="space-y-8">
-
-
-          {/* Start Course Button */}
-          <div className="flex justify-center">
-            <Link
-              href={`/learn?course=${course.slug}`}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-lg px-8 py-4 text-lg font-medium shadow-lg transition"
-            >
-              <Play size={20} />
-              Start Course - First Lesson Free
-            </Link>
-          </div>
-
           {/* Course Content Overview */}
           <div className="space-y-6">
             <h2 className="text-xl font-semibold">Course Content</h2>
@@ -294,21 +281,6 @@ export default function CourseOverviewPage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Call to Action */}
-          <div className="bg-muted/20 rounded-lg border p-6 text-center">
-            <h3 className="text-lg font-semibold mb-2">Ready to start learning?</h3>
-            <p className="text-muted-foreground text-sm mb-4">
-              Begin with the first lesson for free, then continue your creative journey.
-            </p>
-            <Link
-              href={`/learn?course=${course.slug}`}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium transition"
-            >
-              <Play size={18} />
-              Start Learning Now
-            </Link>
           </div>
         </div>
       </div>
