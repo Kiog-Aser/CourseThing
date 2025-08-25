@@ -335,7 +335,7 @@ export default function LearnPage() {
   const prevCompletedCount = useRef(completedCount);
 
   useEffect(() => {
-    // Only trigger when going from not complete to complete
+    // Show popup immediately if already completed on mount
     if (
       totalLessons > 0 &&
       completedCount === totalLessons &&
@@ -350,6 +350,13 @@ export default function LearnPage() {
     }
     prevCompletedCount.current = completedCount;
   }, [completedCount, totalLessons]);
+
+  // Show popup immediately if already completed on first render
+  useEffect(() => {
+    if (totalLessons > 0 && completedCount === totalLessons) {
+      setShowCongrats(true);
+    }
+  }, [totalLessons, completedCount]);
 
   // --- Auto-select first incomplete lesson ---
   React.useEffect(() => {
@@ -380,12 +387,53 @@ export default function LearnPage() {
   }
 
   if (courseQuery.status === "pending") {
+    // Skeleton loading UI for sidebar and main content
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
-        <Loader2 className="text-muted-foreground animate-spin" />
-        <p className="text-muted-foreground text-xs">
-          Loading course "{courseSlug}"...
-        </p>
+      <div className="flex min-h-screen flex-col md:flex-row">
+        {/* Sidebar Skeleton */}
+        <aside className="bg-muted/30 w-full border-b p-4 md:w-72 md:border-r md:border-b-0">
+          <div className="mb-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="h-3 w-20 animate-pulse rounded bg-gray-200" />
+              <span className="h-3 w-8 animate-pulse rounded bg-gray-200" />
+            </div>
+            <div className="h-2.5 w-full animate-pulse rounded-full bg-gray-200" />
+            <div className="mt-1 h-2 w-24 animate-pulse rounded bg-gray-200" />
+          </div>
+          <div className="mb-4">
+            <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
+            <div className="mt-1 h-3 w-40 animate-pulse rounded bg-gray-200" />
+          </div>
+          <nav className="mt-6 space-y-2">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="flex animate-pulse items-center gap-3 rounded-md bg-gray-100 px-3 py-3"
+              >
+                <span className="h-4 w-4 rounded-full bg-gray-300" />
+                <span className="h-3 w-24 rounded bg-gray-300" />
+              </div>
+            ))}
+          </nav>
+        </aside>
+        {/* Main Content Skeleton */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="mx-auto max-w-3xl space-y-6">
+            <div className="flex flex-col gap-2">
+              <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
+              <div className="h-3 w-32 animate-pulse rounded bg-gray-200" />
+            </div>
+            <div className="aspect-video w-full animate-pulse rounded-lg bg-gray-200" />
+            <div className="mt-6 space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-4 w-full animate-pulse rounded bg-gray-100"
+                />
+              ))}
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -533,8 +581,8 @@ export default function LearnPage() {
                     />
                   ) : null}
                   {/* Completion toggle - single circle or check */}
-                  <button
-                    className="ml-2 flex items-center justify-center rounded-full p-0.5 transition hover:bg-emerald-50"
+                  <span
+                    className="ml-2 flex cursor-pointer items-center justify-center rounded-full p-0.5 transition hover:bg-emerald-50"
                     style={{ height: 24, width: 24 }}
                     title={
                       isCompleted ? "Mark as incomplete" : "Mark as completed"
@@ -550,21 +598,31 @@ export default function LearnPage() {
                     aria-label={
                       isCompleted ? "Mark as incomplete" : "Mark as completed"
                     }
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        if (isCompleted) {
+                          unmarkCompleted.mutate({ lessonId: lesson.id });
+                        } else {
+                          markCompleted.mutate({ lessonId: lesson.id });
+                        }
+                      }
+                    }}
                   >
                     {isCompleted ? (
-                      // Single filled circle with check for completed
+                      // Centered checkmark inside a filled circle
                       <svg
                         width="20"
                         height="20"
                         viewBox="0 0 20 20"
-                        className="text-white"
-                        fill="currentColor"
-                        style={{ background: "#10b981", borderRadius: "50%" }}
+                        className="block"
                         xmlns="http://www.w3.org/2000/svg"
                       >
-                        <circle cx="10" cy="10" r="10" fill="#10b981" />
+                        <circle cx="10" cy="10" r="9" fill="#10b981" />
                         <path
-                          d="M6 10.5L9 13.5L14 8.5"
+                          d="M6.5 10.5L9 13L14 8"
                           stroke="white"
                           strokeWidth="2"
                           strokeLinecap="round"
@@ -578,7 +636,7 @@ export default function LearnPage() {
                         width="20"
                         height="20"
                         viewBox="0 0 20 20"
-                        className="text-gray-400"
+                        className="block"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg"
                       >
@@ -591,7 +649,7 @@ export default function LearnPage() {
                         />
                       </svg>
                     )}
-                  </button>
+                  </span>
                 </button>
               );
             })}
@@ -716,11 +774,46 @@ export default function LearnPage() {
                           return renderMarkdownHeadings(active.content ?? "");
                         }
                       })()
-                    : (typeof active.content === "string" ? active.content : "")
-                        .split(/\n\n+/)
-                        .map((para: string, i: number) => (
-                          <p key={i}>{para}</p>
-                        ))}
+                    : (() => {
+                        // Always use renderMarkdownHeadings for plain text content
+                        const renderMarkdownHeadings = (text: string) => {
+                          const lines = text.split("\n");
+                          return (
+                            <>
+                              {lines.map((line, idx) => {
+                                const trimmed = line.trim();
+                                if (trimmed.startsWith("### ")) {
+                                  return (
+                                    <h3 key={idx} className="mt-6 first:mt-0">
+                                      {trimmed.replace(/^###\s+/, "")}
+                                    </h3>
+                                  );
+                                }
+                                if (trimmed.startsWith("## ")) {
+                                  return (
+                                    <h2 key={idx} className="mt-6 first:mt-0">
+                                      {trimmed.replace(/^##\s+/, "")}
+                                    </h2>
+                                  );
+                                }
+                                if (trimmed.startsWith("# ")) {
+                                  return (
+                                    <h1 key={idx} className="mt-6 first:mt-0">
+                                      {trimmed.replace(/^#\s+/, "")}
+                                    </h1>
+                                  );
+                                }
+                                return <p key={idx}>{line}</p>;
+                              })}
+                            </>
+                          );
+                        };
+                        return renderMarkdownHeadings(
+                          typeof active.content === "string"
+                            ? active.content
+                            : "",
+                        );
+                      })()}
                 </article>
                 {/* Bottom navigation: previous on left, mark as completed/next on right */}
                 {(() => {
