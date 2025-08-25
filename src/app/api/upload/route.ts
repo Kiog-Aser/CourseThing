@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { auth } from '~/server/auth';
 import { isAdminEmail } from '~/server/auth/utils/is-admin';
+import { env } from '~/env';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
     const blob = await put(filename, buffer, {
       contentType: file.type,
       access: 'public',
+      token: env.BLOB_READ_WRITE_TOKEN,
     });
 
     // Return the blob URL

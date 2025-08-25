@@ -31,6 +31,7 @@ export const env = createEnv({
     ADMIN_EMAILS: z.string().optional(), // comma separated list of admin emails
     SUPABASE_URL: z.string().url().default("https://placeholder.supabase.co"),
     SUPABASE_ANON_KEY: z.string().default("placeholder-anon-key"),
+    BLOB_READ_WRITE_TOKEN: z.string().optional(), // Vercel Blob storage token
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -69,6 +70,7 @@ export const env = createEnv({
     ADMIN_EMAILS: process.env.ADMIN_EMAILS,
     SUPABASE_URL: process.env.SUPABASE_URL || "https://placeholder.supabase.co",
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || "placeholder-anon-key",
+    BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_SUPABASE_URL:
       process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
