@@ -135,11 +135,11 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
 
   const cardContent = (
     <div
-      className={cn(
-        "group focus-visible:ring-primary relative block w-[180px] shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
-        "cursor-pointer",
-        className,
-      )}
+              className={cn(
+          "group focus-visible:ring-primary relative block w-[200px] shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+          "cursor-pointer",
+          className,
+        )}
       style={
         {
           "--accent": accent,
@@ -149,11 +149,11 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
     >
       <div
         className={cn(
-          "relative aspect-[9/16] overflow-hidden rounded-xl",
-          "",
+          "relative aspect-[3/4] overflow-hidden rounded-lg",
           "bg-neutral-900 text-white",
-          "shadow-[0_4px_14px_-4px_rgba(0,0,0,0.5)]",
-          "transition-transform duration-300 group-hover:-translate-y-1",
+          "shadow-lg shadow-black/20",
+          "ring-1 ring-white/10",
+          "transition-all duration-300 group-hover:shadow-xl group-hover:shadow-black/30 group-hover:ring-white/20",
         )}
         style={gradientStyle}
       >
@@ -162,9 +162,9 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
             src={coverImageUrl}
             alt={title}
             fill
-            sizes="180px"
+            sizes="200px"
             priority={false}
-            className="object-cover"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
               // Log the error for debugging
               console.log('Image failed to load:', coverImageUrl, e);
@@ -174,31 +174,19 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
           />
         )}
 
-        {/* Overlay gradient for readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/5" />
-
-        {/* Language badge */}
-        <div className="absolute top-2 left-2 flex items-center gap-1">
-          <span className="rounded-full bg-black/55 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-white/90 backdrop-blur-sm">
-            {flag}
-            {!isRedundantLanguage && (
-              <span className="ml-1">
-                {language.charAt(0).toUpperCase() + language.slice(1)}
-              </span>
-            )}
-          </span>
-        </div>
+        {/* Subtle overlay gradient for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
         {/* Content */}
-        <div className="absolute inset-x-3 bottom-3 space-y-1">
-          <h3 className="line-clamp-2 text-base leading-snug font-bold drop-shadow">
+        <div className="absolute inset-x-4 bottom-4 space-y-2">
+          <h3 className="line-clamp-2 text-lg leading-tight font-bold text-white drop-shadow-lg">
             {title}
           </h3>
-          <p className="line-clamp-2 text-[11px] leading-tight text-white/70">
+          <p className="line-clamp-2 text-sm leading-tight text-white/80">
             {shortDescription}
           </p>
           {(chapterCount !== undefined || lessonCount !== undefined) && (
-            <div className="text-[10px] text-white/60">
+            <div className="text-xs text-white/70 font-medium">
               {chapterCount !== undefined && chapterCount > 0 && (
                 <span>{chapterCount} chapter{chapterCount !== 1 ? 's' : ''}</span>
               )}
@@ -210,9 +198,9 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
               )}
             </div>
           )}
-          <div className="opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90">
-              Start <ArrowRight size={12} />
+          <div className="opacity-0 transition-all duration-300 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0">
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
+              Start Course <ArrowRight size={14} />
             </span>
           </div>
         </div>

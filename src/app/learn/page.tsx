@@ -616,7 +616,9 @@ export default function LearnPage() {
                       const isActive = lesson.id === activeId;
                       const isVideo =
                         lesson.kind === "VIDEO" || !!lesson.youtubeId;
-                      const locked = false;
+                      // First lesson is free, others require authentication
+                      const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
+                      const locked = !isAuthed && !isFirstLesson;
                       const isCompleted = optimisticIds.includes(lesson.id);
 
                       return (
@@ -768,7 +770,9 @@ export default function LearnPage() {
             {course?.lessons?.map((lesson, idx) => {
               const isActive = lesson.id === activeId;
               const isVideo = lesson.kind === "VIDEO" || !!lesson.youtubeId;
-              const locked = false;
+              // First lesson is free, others require authentication
+              const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
+              const locked = !isAuthed && !isFirstLesson;
               const isCompleted = optimisticIds.includes(lesson.id);
 
               return (
@@ -914,9 +918,8 @@ export default function LearnPage() {
                     Sign in to continue
                   </h2>
                   <p className="text-muted-foreground text-sm leading-relaxed">
-                    You need to be signed in to access the rest of this free
-                    course. Create a free account or sign in to unlock all
-                    lessons.
+                    The first lesson is free to try! Sign in to access all lessons
+                    and continue your learning journey.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-3">

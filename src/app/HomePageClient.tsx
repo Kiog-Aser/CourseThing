@@ -32,12 +32,12 @@ type CourseWithChapters = {
   }>;
 };
 
-function groupByCategory(courses: CourseWithChapters[]) {
+function groupByLanguage(courses: CourseWithChapters[]) {
   const map = new Map<string, CourseWithChapters[]>();
   for (const c of courses) {
-    const category = c.language?.trim() || "general";
-    if (!map.has(category)) map.set(category, []);
-    map.get(category)!.push(c);
+    const lang = c.language?.trim() || "unknown";
+    if (!map.has(lang)) map.set(lang, []);
+    map.get(lang)!.push(c);
   }
   return Array.from(map.entries()).sort(([a], [b]) =>
     a.localeCompare(b, undefined, { sensitivity: "base" }),
@@ -60,7 +60,7 @@ export default function HomePageClient({
   );
   const [courses] = useState<CourseWithChapters[]>(initialCourses);
 
-  const grouped = groupByCategory(courses);
+  const grouped = groupByLanguage(courses);
 
   const toggleCourseExpansion = (courseId: string) => {
     const newExpanded = new Set(expandedCourses);
@@ -79,20 +79,22 @@ export default function HomePageClient({
         <div className="relative z-10 max-w-2xl space-y-6">
           <div className="bg-background/70 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium tracking-wide backdrop-blur">
             <BookOpen size={14} />
-            <span>CreatiFun Course Platform</span>
+            <span>Creative learning platform</span>
           </div>
           <h1 className="text-4xl leading-tight font-bold tracking-tight text-balance md:text-5xl">
-            Access premium courses from CreatiFun service
+            Unlock your creativity through engaging, interactive courses
           </h1>
           <p className="text-muted-foreground text-base leading-relaxed">
-            Access exclusive courses designed by CreatiFun experts. Subscribe to our service and unlock premium content to enhance your creative journey.
+            Experience the first lesson of every course for free. Join our
+            community of creative minds and track your progress as you build
+            new skills step by step.
           </p>
           <div className="flex flex-wrap gap-4">
             <Link
               href="#courses"
               className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded-md px-5 py-3 text-sm font-medium shadow transition hover:brightness-110"
             >
-              Explore Courses <ArrowRight size={16} />
+              Browse Courses <ArrowRight size={16} />
             </Link>
             {isAuthed ? (
               <Link
@@ -107,7 +109,7 @@ export default function HomePageClient({
                   href="/signup"
                   className="hover:bg-accent inline-flex items-center gap-2 rounded-md border px-5 py-3 text-sm font-medium"
                 >
-                  Subscribe to CreatiFun
+                  Create Free Account
                 </Link>
                 <Link
                   href="/signin"
@@ -128,7 +130,8 @@ export default function HomePageClient({
           </div>
           {!isAuthed && (
             <p className="text-muted-foreground/80 text-xs">
-              You are viewing as a guest. Subscribe to CreatiFun to unlock all premium content.
+              You are viewing as a guest. Lessons after #1 will ask you to sign
+              in.
             </p>
           )}
         </div>
@@ -161,12 +164,12 @@ export default function HomePageClient({
 
       {/* Expandable Course Sections */}
       <div id="courses" className="mt-12 space-y-16">
-        {grouped.map(([category, courseList]) => (
-          <section key={category} className="scroll-mt-24">
+        {grouped.map(([language, courseList]) => (
+          <section key={language} className="scroll-mt-24">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">
-                  {category.charAt(0).toUpperCase() + category.slice(1)} Courses
+                  {language.charAt(0).toUpperCase() + language.slice(1)} Courses
                 </h2>
               </div>
             </div>
@@ -221,26 +224,30 @@ export default function HomePageClient({
                   {/* Course Poster (always visible) */}
                   <div className="-mx-4 overflow-x-auto px-4 pb-2">
                     <div className="flex gap-6">
-                      <CoursePosterCard
-                        slug={course.slug}
-                        title={course.title}
-                        language={course.language}
-                        description={course.description}
-                        coverImageUrl={course.poster}
-                        tagline={course.description}
-                        accentColor="#6366f1"
-                        chapterCount={course.chapters.length}
-                        lessonCount={course.lessons.length}
-                        onClick={() =>
-                          hasChapters && toggleCourseExpansion(course.id)
-                        }
-                      />
-                      {/* Debug info */}
-                      {process.env.NODE_ENV === 'development' && course.poster && (
-                        <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
-                          Poster URL: {course.poster}
-                        </div>
-                      )}
+                      <div>
+                                              <div>
+                        <CoursePosterCard
+                          slug={course.slug}
+                          title={course.title}
+                          language={course.language}
+                          description={course.description}
+                          coverImageUrl={course.poster}
+                          tagline={course.description}
+                          accentColor="#6366f1"
+                          chapterCount={course.chapters.length}
+                          lessonCount={course.lessons.length}
+                          onClick={() =>
+                            hasChapters && toggleCourseExpansion(course.id)
+                          }
+                        />
+                        {/* Debug info */}
+                        {process.env.NODE_ENV === 'development' && course.poster && (
+                          <div className="text-xs text-gray-500 mt-1 p-1 bg-gray-100 rounded">
+                            Poster URL: {course.poster}
+                          </div>
+                        )}
+                      </div>
+                      </div>
 
                       {/* Chapter Posters (only when expanded) */}
                       {isExpanded &&
