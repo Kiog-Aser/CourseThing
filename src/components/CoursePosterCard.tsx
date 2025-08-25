@@ -174,36 +174,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
           />
         )}
 
-        {/* Subtle overlay gradient for better text readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-
-        {/* Content */}
-        <div className="absolute inset-x-4 bottom-4 space-y-2">
-          <h3 className="line-clamp-2 text-lg leading-tight font-bold text-white drop-shadow-lg">
-            {title}
-          </h3>
-          <p className="line-clamp-2 text-sm leading-tight text-white/80">
-            {shortDescription}
-          </p>
-          {(chapterCount !== undefined || lessonCount !== undefined) && (
-            <div className="text-xs text-white/70 font-medium">
-              {chapterCount !== undefined && chapterCount > 0 && (
-                <span>{chapterCount} chapter{chapterCount !== 1 ? 's' : ''}</span>
-              )}
-              {chapterCount !== undefined && lessonCount !== undefined && chapterCount > 0 && lessonCount > 0 && (
-                <span> • </span>
-              )}
-              {lessonCount !== undefined && lessonCount > 0 && (
-                <span>{lessonCount} lesson{lessonCount !== 1 ? 's' : ''}</span>
-              )}
-            </div>
-          )}
-          <div className="opacity-0 transition-all duration-300 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0">
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
-              Start Course <ArrowRight size={14} />
-            </span>
-          </div>
-        </div>
+        {/* No content for course posters - completely clean */}
       </div>
     </div>
   );

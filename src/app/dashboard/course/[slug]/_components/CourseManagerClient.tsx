@@ -435,6 +435,8 @@ export function CourseManagerClient({
           description: lessonMeta.description?.trim() || "",
           content: undefined,
           contentJson: undefined,
+          // Preserve chapterId if the lesson belongs to a chapter
+          ...(activeLesson.chapterId && { chapterId: activeLesson.chapterId }),
         },
       });
       setLessonMeta((m) => ({ ...m, dirty: false }));
@@ -451,6 +453,8 @@ export function CourseManagerClient({
         data: {
           contentJson: JSON.stringify(editorJson),
           content: "", // plain fallback not needed for now
+          // Preserve chapterId if the lesson belongs to a chapter
+          ...(activeLesson.chapterId && { chapterId: activeLesson.chapterId }),
         },
       });
       setEditorDirty(false);

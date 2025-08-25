@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BookOpen, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { CoursePosterCard } from "~/components/CoursePosterCard";
+import { ChapterPosterCard } from "~/components/ChapterPosterCard";
 import { useState } from "react";
 
 type CourseWithChapters = {
@@ -222,7 +223,7 @@ export default function HomePageClient({
                           href={`/learn?course=${course.slug}`}
                           className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1 text-xs font-medium transition"
                         >
-                          Start Course
+                          Start
                         </Link>
                       )}
                       {hasChapters && (
@@ -273,14 +274,13 @@ export default function HomePageClient({
                       {isExpanded &&
                         course.chapters.map((chapter) => (
                           <div key={chapter.id}>
-                            <CoursePosterCard
+                            <ChapterPosterCard
                               slug={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
                               title={chapter.title}
                               language={course.language}
                               description={chapter.description}
                               coverImageUrl={chapter.poster}
                               tagline={chapter.description}
-                              accentColor="#8b5cf6"
                               lessonCount={chapter.lessons.length}
                               onClick={() =>
                                 (window.location.href = `/learn?course=${course.slug}&chapter=${chapter.slug}`)
@@ -329,17 +329,7 @@ export default function HomePageClient({
                     </div>
                   )}
 
-                  {/* Start Course Button */}
-                  {hasChapters && (
-                    <div className="mt-6 flex justify-center">
-                      <Link
-                        href={`/learn?course=${course.slug}`}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-8 py-4 text-lg font-medium shadow-lg transition"
-                      >
-                        Start Course - First Lesson Free
-                      </Link>
-                    </div>
-                  )}
+
                 </div>
               );
             })}
