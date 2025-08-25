@@ -620,6 +620,10 @@ export default function LearnPage() {
                       const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
                       const isCustomer = session?.user?.creativeFunSubscription === true;
                       const locked = !isFirstLesson && (!isAuthed || !isCustomer);
+
+                      // Determine lock reason for better UX
+                      const lockReason = !isFirstLesson && !isAuthed ? 'auth' :
+                                       !isFirstLesson && isAuthed && !isCustomer ? 'subscription' : null;
                       const isCompleted = optimisticIds.includes(lesson.id);
 
                       return (
@@ -775,6 +779,10 @@ export default function LearnPage() {
               const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
               const isCustomer = session?.user?.creativeFunSubscription === true;
               const locked = !isFirstLesson && (!isAuthed || !isCustomer);
+
+              // Determine lock reason for better UX
+              const lockReason = !isFirstLesson && !isAuthed ? 'auth' :
+                               !isFirstLesson && isAuthed && !isCustomer ? 'subscription' : null;
               const isCompleted = optimisticIds.includes(lesson.id);
 
               return (
@@ -913,53 +921,107 @@ export default function LearnPage() {
         <main className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-3xl space-y-6">
             {lockedAttempt ? (
-              <div className="mx-auto flex min-h-[40vh] max-w-md flex-col items-center justify-center gap-5 text-center">
-                <Lock className="text-muted-foreground h-10 w-10" />
-                <div className="space-y-2">
-                  <h2 className="text-xl font-semibold tracking-tight">
-                    CreatiFun Customer Access Required
-                  </h2>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    The first lesson is free to try! To access all lessons, you need
-                    to be a verified CreatiFun customer. Sign in to continue your
-                    learning journey.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <button
-                    onClick={() =>
-                      router.push(
-                        "/signup?callbackUrl=" +
-                          encodeURIComponent(
-                            window.location.pathname + window.location.search,
-                          ),
-                      )
-                    }
-                    className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
-                  >
-                    Create free account
-                  </button>
-                  <button
-                    onClick={() =>
-                      router.push(
-                        "/signin?callbackUrl=" +
-                          encodeURIComponent(
-                            window.location.pathname + window.location.search,
-                          ),
-                      )
-                    }
-                    className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
-                  >
-                    Sign in
-                  </button>
-                  <button
-                    onClick={() => setLockedAttempt(null)}
-                    className="text-muted-foreground text-xs underline-offset-4 hover:underline"
-                  >
-                    Back to first lesson
-                  </button>
-                </div>
-              </div>
+              (() => {
+                const lesson = lockedAttempt;
+                const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
+                const isCustomer = session?.user?.creativeFunSubscription === true;
+                const needsAuth = !isAuthed;
+                const needsSubscription = isAuthed && !isCustomer;
+
+                return (
+                  <div className="space-y-6">
+                    {/* Lesson header */}
+                    <div className="flex flex-col gap-2">
+                      <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-3xl">
+                        {lesson.title}
+                      </h1>
+                      {lesson.description && (
+                        <div className="text-muted-foreground text-sm leading-snug">
+                          {lesson.description}
+                        </div>
+                      )}
+                      <div className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                        Lesson {lessons.findIndex((l) => l.id === lesson.id) + 1} of{" "}
+                        {lessons.length}
+                      </div>
+                    </div>
+
+                    {/* Lock message */}
+                    <div className="mx-auto flex min-h-[30vh] max-w-md flex-col items-center justify-center gap-5 text-center border border-dashed rounded-lg p-8">
+                      <Lock className="text-muted-foreground h-12 w-12" />
+                      <div className="space-y-3">
+                        <h2 className="text-xl font-semibold tracking-tight">
+                          {needsAuth ? "Sign In Required" : "CreatiFun Subscription Required"}
+                        </h2>
+                        <p className="text-muted-foreground text-sm leading-relaxed">
+                          {needsAuth
+                            ? "The first lesson is free to try! To access all lessons, please sign in to your account."
+                            : "The first lesson is free to try! To access all lessons, you need to be a verified CreatiFun customer."
+                          }
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-3">
+                        {needsAuth ? (
+                          <>
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  "/signup?callbackUrl=" +
+                                    encodeURIComponent(
+                                      window.location.pathname + window.location.search,
+                                    ),
+                                )
+                              }
+                              className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
+                            >
+                              Create free account
+                            </button>
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  "/signin?callbackUrl=" +
+                                    encodeURIComponent(
+                                      window.location.pathname + window.location.search,
+                                    ),
+                                )
+                              }
+                              className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
+                            >
+                              Sign in
+                            </button>
+                          </>
+                        ) : needsSubscription ? (
+                          <>
+                            <a
+                              href="https://creati.fun"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
+                            >
+                              Subscribe to CreatiFun
+                            </a>
+                            <a
+                              href="mailto:milloranh@gmail.com?subject=CreatiFun Support Request"
+                              className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
+                            >
+                              Contact Support
+                            </a>
+                          </>
+                        ) : null}
+                        <button
+                          onClick={() => {
+                            setLockedAttempt(null);
+                            setActiveId(lessons[0]?.id ?? null);
+                          }}
+                          className="text-muted-foreground text-xs underline-offset-4 hover:underline"
+                        >
+                          Back to first lesson
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()
             ) : active ? (
               <>
                 <div className="flex flex-col gap-2">

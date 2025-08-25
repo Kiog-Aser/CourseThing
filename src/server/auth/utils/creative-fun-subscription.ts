@@ -37,7 +37,7 @@ export async function checkCreativeFunCustomer(email: string): Promise<boolean> 
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
-        'Origin': env.NEXTAUTH_URL || 'http://localhost:3000',
+        'Origin': 'https://creati.fun',
         'User-Agent': 'CreatiFun-Course-Platform/1.0',
       },
       // Set a reasonable timeout
