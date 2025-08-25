@@ -75,11 +75,11 @@ export function ChapterPosterCard(props: ChapterPosterCardProps) {
     >
       <div
         className={cn(
-          "relative aspect-[4/5] overflow-hidden rounded-xl",
-          "",
+          "relative aspect-[3/4] overflow-hidden rounded-lg",
           "bg-neutral-900 text-white",
-          "shadow-[0_4px_14px_-4px_rgba(0,0,0,0.5)]",
-          "transition-transform duration-300 group-hover:-translate-y-1",
+          "shadow-lg shadow-black/20",
+          "ring-1 ring-white/10",
+          "transition-all duration-300 group-hover:shadow-xl group-hover:shadow-black/30 group-hover:ring-white/20",
         )}
         style={
           !coverImageUrl
@@ -96,7 +96,7 @@ export function ChapterPosterCard(props: ChapterPosterCardProps) {
             fill
             sizes="200px"
             priority={false}
-            className="object-cover"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
               // Log the error for debugging
               console.log('Image failed to load:', coverImageUrl, e);

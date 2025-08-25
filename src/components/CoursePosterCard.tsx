@@ -174,7 +174,12 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
           />
         )}
 
-        {/* No content for course posters - completely clean */}
+        {/* Hover button for course posters */}
+        <div className="absolute inset-x-4 bottom-4 opacity-0 transition-all duration-300 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0">
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
+            Start Course <ArrowRight size={14} />
+          </span>
+        </div>
       </div>
     </div>
   );

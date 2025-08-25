@@ -43,7 +43,7 @@ const lessonBase = z.object({
   contentJson: z.string().optional(),
   youtubeId: z.string().optional(),
   order: z.number().int().min(0).default(0),
-  chapterId: z.string().optional(),
+  chapterId: z.string().nullable().optional(),
 });
 
 function ensureAdmin(email: string | null | undefined) {
