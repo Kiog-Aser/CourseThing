@@ -16,6 +16,18 @@ const courseBase = z.object({
     // Allow 2+ to stay consistent with lesson slug rule and current UI inputs
     .min(2),
   language: z.string().min(2),
+  poster: z.string().optional(),
+});
+
+const chapterBase = z.object({
+  title: z.string().min(2),
+  description: z.string().optional(),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .min(2),
+  poster: z.string().optional(),
+  order: z.number().int().min(0).default(0),
 });
 
 const lessonBase = z.object({
@@ -90,7 +102,7 @@ export const courseRouter = createTRPCRouter({
   // --- Existing Endpoints ---
   list: publicProcedure.query(async ({ ctx }) => {
     try {
-      // Primary path: DB has the language column
+      // Primary path: DB has the language column and poster
       return await ctx.db.course.findMany({
         orderBy: { createdAt: "desc" },
         select: {
@@ -99,10 +111,11 @@ export const courseRouter = createTRPCRouter({
           title: true,
           description: true,
           language: true,
+          poster: true,
         },
       });
     } catch {
-      // Fallback path: older database without the language column
+      // Fallback path: older database without the language column and poster
       const fallback = await ctx.db.course.findMany({
         orderBy: { createdAt: "desc" },
         select: {
@@ -121,6 +134,7 @@ export const courseRouter = createTRPCRouter({
         }) => ({
           ...c,
           language: "general",
+          poster: null,
         }),
       );
     }
@@ -132,6 +146,29 @@ export const courseRouter = createTRPCRouter({
         return await ctx.db.course.findUnique({
           where: { slug: input.slug },
           include: {
+            chapters: {
+              orderBy: { order: "asc" },
+              include: {
+                lessons: {
+                  orderBy: { order: "asc" },
+                  select: {
+                    id: true,
+                    slug: true,
+                    title: true,
+                    description: true,
+                    kind: true,
+                    status: true,
+                    content: true,
+                    contentJson: true,
+                    youtubeId: true,
+                    order: true,
+                    authorId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                  },
+                },
+              },
+            },
             lessons: {
               orderBy: { order: "asc" },
               select: {
@@ -154,7 +191,7 @@ export const courseRouter = createTRPCRouter({
         });
       } catch (error) {
         console.error('Database error in bySlug:', error);
-        // Fallback: try without description field
+        // Fallback: try without description field and chapters
         return await ctx.db.course.findUnique({
           where: { slug: input.slug },
           include: {
@@ -204,6 +241,7 @@ export const courseRouter = createTRPCRouter({
               title: input.title,
               description: input.description,
               slug: input.slug,
+              poster: input.poster,
               authorId: ctx.session.user.id,
             },
           });
@@ -224,6 +262,7 @@ export const courseRouter = createTRPCRouter({
             description: input.description,
             slug: input.slug,
             language: input.language,
+            poster: input.poster,
           },
         });
       } catch (err) {
@@ -240,6 +279,7 @@ export const courseRouter = createTRPCRouter({
               title: input.title,
               description: input.description,
               slug: input.slug,
+              poster: input.poster,
               // omit language
             } as Record<string, unknown>,
           });
@@ -249,14 +289,27 @@ export const courseRouter = createTRPCRouter({
       }
     }),
   addLesson: protectedProcedure
-    .input(z.object({ courseId: z.string(), data: lessonBase }))
+    .input(z.object({
+      courseId: z.string().optional(),
+      chapterId: z.string().optional(),
+      data: lessonBase
+    }))
     .mutation(async ({ ctx, input }) => {
       ensureAdmin(ctx.session.user?.email);
+
+      if (!input.courseId && !input.chapterId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Either courseId or chapterId must be provided"
+        });
+      }
+
       try {
         return await ctx.db.lesson.create({
           data: {
             ...input.data,
             courseId: input.courseId,
+            chapterId: input.chapterId,
             authorId: ctx.session.user.id,
           },
         });
@@ -268,6 +321,7 @@ export const courseRouter = createTRPCRouter({
           data: {
             ...dataWithoutDescription,
             courseId: input.courseId,
+            chapterId: input.chapterId,
             authorId: ctx.session.user.id,
           },
         });
@@ -308,6 +362,76 @@ export const courseRouter = createTRPCRouter({
       } catch {
         throw new TRPCError({ code: "NOT_FOUND", message: "Course not found" });
       }
+      return { success: true };
+    }),
+
+  // --- Chapter Operations ---
+  listChapters: publicProcedure
+    .input(z.object({ courseId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return await ctx.db.chapter.findMany({
+        where: { courseId: input.courseId },
+        orderBy: { order: "asc" },
+        include: {
+          lessons: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              description: true,
+              kind: true,
+              status: true,
+              order: true,
+              createdAt: true,
+            },
+          },
+        },
+      });
+    }),
+
+  createChapter: protectedProcedure
+    .input(z.object({ courseId: z.string(), data: chapterBase }))
+    .mutation(async ({ ctx, input }) => {
+      ensureAdmin(ctx.session.user?.email);
+      return await ctx.db.chapter.create({
+        data: {
+          ...input.data,
+          courseId: input.courseId,
+        },
+      });
+    }),
+
+  updateChapter: protectedProcedure
+    .input(z.object({ id: z.string(), data: chapterBase.partial() }))
+    .mutation(async ({ ctx, input }) => {
+      ensureAdmin(ctx.session.user?.email);
+      return await ctx.db.chapter.update({
+        where: { id: input.id },
+        data: input.data,
+      });
+    }),
+
+  deleteChapter: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      ensureAdmin(ctx.session.user?.email);
+      await ctx.db.chapter.delete({ where: { id: input.id } });
+      return { success: true };
+    }),
+
+  reorderChapters: protectedProcedure
+    .input(z.object({ courseId: z.string(), chapterIds: z.array(z.string()) }))
+    .mutation(async ({ ctx, input }) => {
+      ensureAdmin(ctx.session.user?.email);
+      await Promise.all(
+        input.chapterIds.map((id, index) =>
+          ctx.db.chapter.update({
+            where: { id },
+            data: { order: index },
+          })
+        )
+      );
       return { success: true };
     }),
 });

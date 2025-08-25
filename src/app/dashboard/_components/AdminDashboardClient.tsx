@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
+import { FileUpload } from "~/components/ui";
 
 /**
  * Props passed from the server page (DashboardPage).
@@ -38,7 +39,7 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
   const createCourse = api.course.create.useMutation({
     onSuccess: () => {
       void utils.course.list.invalidate();
-      setForm({ title: "", slug: "", description: "", language: "" });
+      setForm({ title: "", slug: "", description: "", language: "", poster: "" });
     },
   });
 
@@ -53,6 +54,7 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
     slug: "",
     language: "",
     description: "",
+    poster: "",
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -151,6 +153,18 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
               />
             </div>
 
+            <div className="space-y-1">
+              <label className="text-muted-foreground block text-[11px] font-medium uppercase">
+                Course Poster (optional)
+              </label>
+              <FileUpload
+                currentImage={form.poster}
+                onUpload={(url) => setForm({ ...form, poster: url })}
+                placeholder="Upload course poster image"
+                maxSizeText="5MB"
+              />
+            </div>
+
             <button
               disabled={createCourse.status === "pending"}
               className="bg-primary text-primary-foreground inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium shadow transition-colors disabled:opacity-50"
@@ -175,19 +189,28 @@ export function AdminDashboardClient(props: AdminDashboardClientProps) {
                 className="group hover:bg-muted/40 rounded-lg border p-4 transition"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="font-medium">{c.title}</div>
-                    <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                      <span>/{c.slug}</span>
-                      <span className="bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
-                        {c.language}
-                      </span>
-                    </div>
-                    {c.description && (
-                      <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
-                        {c.description}
-                      </p>
+                  <div className="flex gap-3">
+                    {c.poster && (
+                      <img
+                        src={c.poster}
+                        alt={c.title}
+                        className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      />
                     )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{c.title}</div>
+                      <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                        <span>/{c.slug}</span>
+                        <span className="bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase">
+                          {c.language}
+                        </span>
+                      </div>
+                      {c.description && (
+                        <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
+                          {c.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 opacity-0 transition group-hover:opacity-100">
                     <Link

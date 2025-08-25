@@ -62,18 +62,37 @@ model User {
 }
 
 model Course {
-  id          String   @id @default(cuid())
-  slug        String   @unique
+  id          String    @id @default(cuid())
+  slug        String    @unique
   title       String
-  language    String   @default("general")
+  language    String    @default("general")
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  poster      String?   // URL to course poster image
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   authorId    String
-  author      User     @relation("CourseAuthor", fields: [authorId], references: [id])
-  lessons     Lesson[]
+  author      User      @relation("CourseAuthor", fields: [authorId], references: [id])
+  chapters    Chapter[]
+  lessons     Lesson[]  // Legacy: lessons without chapters
 
   @@index([slug])
+}
+
+model Chapter {
+  id          String   @id @default(cuid())
+  slug        String
+  title       String
+  description String?
+  poster      String?  // URL to chapter poster image
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+
+  @@unique([courseId, slug])
+  @@index([courseId, order])
 }
 
 model Lesson {
@@ -88,15 +107,19 @@ model Lesson {
   order             Int                @default(0)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-  courseId          String
+  courseId          String?            // Optional for backward compatibility
+  chapterId         String?            // New: lessons can belong to chapters
   authorId          String
   description       String?
   author            User               @relation("LessonAuthor", fields: [authorId], references: [id])
-  course            Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course            Course?            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapter           Chapter?           @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   lessonCompletions LessonCompletion[]
 
-  @@unique([courseId, slug])
+  // Ensure slug is unique within course or chapter context
+  @@unique([courseId, slug, chapterId])
   @@index([courseId, order])
+  @@index([chapterId, order])
 }
 
 model VerificationToken {

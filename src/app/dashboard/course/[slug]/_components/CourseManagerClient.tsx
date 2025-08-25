@@ -9,7 +9,10 @@ import {
   Trash2,
   CheckCircle,
   Circle,
+  Folder,
+  Edit,
 } from "lucide-react";
+import { FileUpload } from "~/components/ui";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -213,6 +216,38 @@ export function CourseManagerClient({
     onSuccess: () => void utils.course.bySlug.invalidate({ slug }),
   });
 
+  // Chapter operations
+  const chaptersQuery = api.course.listChapters.useQuery(
+    { courseId: initialCourse.id },
+    {
+      initialData: initialCourse.chapters || [],
+    }
+  );
+  const createChapter = api.course.createChapter.useMutation({
+    onSuccess: () => {
+      void utils.course.listChapters.invalidate({ courseId: initialCourse.id });
+      void utils.course.bySlug.invalidate({ slug });
+    },
+  });
+  const updateChapter = api.course.updateChapter.useMutation({
+    onSuccess: () => {
+      void utils.course.listChapters.invalidate({ courseId: initialCourse.id });
+      void utils.course.bySlug.invalidate({ slug });
+    },
+  });
+  const deleteChapter = api.course.deleteChapter.useMutation({
+    onSuccess: () => {
+      void utils.course.listChapters.invalidate({ courseId: initialCourse.id });
+      void utils.course.bySlug.invalidate({ slug });
+    },
+  });
+  const reorderChapters = api.course.reorderChapters.useMutation({
+    onSuccess: () => {
+      void utils.course.listChapters.invalidate({ courseId: initialCourse.id });
+      void utils.course.bySlug.invalidate({ slug });
+    },
+  });
+
   /* ------------------------------- State ----------------------------------- */
 
   const course: CourseData | undefined = courseQuery.data as
@@ -220,10 +255,21 @@ export function CourseManagerClient({
     | undefined;
   const lessonsSorted: LessonWithDescription[] =
     [...(course?.lessons ?? [])].sort((a, b) => a.order - b.order) ?? [];
+  const chaptersSorted = [...(chaptersQuery.data ?? [])].sort((a, b) => a.order - b.order);
 
   const [activeLessonId, setActiveLessonId] = React.useState<string | null>(
     lessonsSorted[0]?.id ?? null,
   );
+
+  // Chapter management state
+  const [showChapterForm, setShowChapterForm] = React.useState(false);
+  const [editingChapterId, setEditingChapterId] = React.useState<string | null>(null);
+  const [chapterForm, setChapterForm] = React.useState({
+    title: "",
+    slug: "",
+    description: "",
+    poster: "",
+  });
 
   // Track local draft states for debounced saves
   const [courseTitle, setCourseTitle] = React.useState(course?.title ?? "");
@@ -464,6 +510,92 @@ export function CourseManagerClient({
     }
   }
 
+  /* --------------------------- Chapter Operations --------------------------- */
+
+  function handleCreateChapter() {
+    if (!course) return;
+    setChapterForm({ title: "", slug: "", description: "", poster: "" });
+    setEditingChapterId(null);
+    setShowChapterForm(true);
+  }
+
+  function handleEditChapter(chapter: any) {
+    setChapterForm({
+      title: chapter.title,
+      slug: chapter.slug,
+      description: chapter.description || "",
+      poster: chapter.poster || "",
+    });
+    setEditingChapterId(chapter.id);
+    setShowChapterForm(true);
+  }
+
+  function handleChapterFormSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!course) return;
+
+    const order = editingChapterId
+      ? chaptersSorted.find(c => c.id === editingChapterId)?.order || 0
+      : chaptersSorted.length;
+
+    if (editingChapterId) {
+      updateChapter.mutate({
+        id: editingChapterId,
+        data: {
+          ...chapterForm,
+          order,
+        },
+      });
+    } else {
+      createChapter.mutate({
+        courseId: course.id,
+        data: {
+          ...chapterForm,
+          order,
+        },
+      });
+    }
+
+    setShowChapterForm(false);
+  }
+
+  function handleDeleteChapter(id: string) {
+    if (!confirm("Delete this chapter? All lessons in this chapter will be moved to the main course.")) return;
+    deleteChapter.mutate({ id });
+  }
+
+  function handleChapterDragStart(e: React.DragEvent, id: string) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id);
+  }
+
+  function handleChapterDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  function handleChapterDrop(e: React.DragEvent, dropId: string) {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData("text/plain");
+    if (!draggedId || draggedId === dropId) return;
+
+    const draggedIndex = chaptersSorted.findIndex(c => c.id === draggedId);
+    const dropIndex = chaptersSorted.findIndex(c => c.id === dropId);
+
+    if (draggedIndex === -1 || dropIndex === -1) return;
+
+    const newOrder = [...chaptersSorted]
+      .map(c => c.id)
+      .filter(id => id !== draggedId);
+
+    newOrder.splice(dropIndex, 0, draggedId);
+
+    reorderChapters.mutate({
+      courseId: initialCourse.id,
+      chapterIds: newOrder,
+    });
+  }
+
   /* ---------------------------- Publish Course ----------------------------- */
   const [publishing, setPublishing] = React.useState(false);
   const unpublishedCount = 0; // all lessons implicitly published
@@ -515,100 +647,288 @@ export function CourseManagerClient({
         </div>
 
         <nav className="space-y-1">
-          {lessonsSorted.map((lesson, idx) => {
-            const isActive = lesson.id === activeLessonId;
-            const isCompleted = completedLessonIds.includes(lesson.id);
-            return (
-              <div
-                key={lesson.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, lesson.id)}
-                onDragOver={(e) => handleDragOver(e, lesson.id)}
-                onDrop={(e) => handleDrop(e, lesson.id)}
-                onClick={() =>
-                  setActiveLessonId(
-                    typeof lesson.id === "string" ? lesson.id : null,
-                  )
-                }
-                className={
-                  "group flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm " +
-                  (isActive
-                    ? "border-primary bg-primary/10"
-                    : "hover:border-accent hover:bg-accent border-transparent")
-                }
-              >
-                <div className="flex flex-1 items-start gap-2">
-                  <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
-                    ⋮⋮
-                  </span>
-                  <span
-                    className={
-                      "flex-1 truncate text-xs " +
-                      (isActive ? "text-primary font-medium" : "")
-                    }
-                  >
-                    {idx + 1}. {lesson.title || "Untitled"}
-                    {lesson.description && (
-                      <div
-                        className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
-                        title={lesson.description}
-                        style={{
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          maxWidth: "100%",
-                        }}
-                      >
-                        {lesson.description}
-                      </div>
-                    )}
-                  </span>
+          {/* Chapter Form */}
+          {showChapterForm && (
+            <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
+              <form onSubmit={handleChapterFormSubmit} className="space-y-3">
+                <div className="space-y-1">
+                  <input
+                    value={chapterForm.title}
+                    onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
+                    placeholder="Chapter title"
+                    className="w-full bg-background rounded-md border px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <input
+                    value={chapterForm.slug}
+                    onChange={(e) => setChapterForm({ ...chapterForm, slug: normalizeSlug(e.target.value) })}
+                    placeholder="chapter-slug"
+                    className="w-full bg-background rounded-md border px-3 py-2 text-sm"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <textarea
+                    value={chapterForm.description}
+                    onChange={(e) => setChapterForm({ ...chapterForm, description: e.target.value })}
+                    placeholder="Chapter description"
+                    className="w-full bg-background rounded-md border px-3 py-2 text-sm resize-none"
+                    rows={2}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <FileUpload
+                    currentImage={chapterForm.poster}
+                    onUpload={(url) => setChapterForm({ ...chapterForm, poster: url })}
+                    placeholder="Upload chapter poster"
+                    maxSizeText="5MB"
+                  />
+                </div>
+                <div className="flex gap-2">
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeLesson(lesson.id);
-                    }}
-                    className="hover:bg-destructive/10 border-destructive/50 text-destructive rounded border px-1.5 py-0.5 text-[10px] opacity-0 transition group-hover:opacity-100"
-                    title="Delete lesson"
+                    type="submit"
+                    disabled={createChapter.status === "pending" || updateChapter.status === "pending"}
+                    className="bg-primary text-primary-foreground px-3 py-1 rounded text-xs font-medium"
                   >
-                    <Trash2 size={12} />
+                    {editingChapterId ? "Update" : "Create"} Chapter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowChapterForm(false)}
+                    className="px-3 py-1 rounded text-xs border"
+                  >
+                    Cancel
                   </button>
                 </div>
-                {/* Completion toggle only for learners */}
-                {isLearner && (
-                  <button
-                    className="ml-2"
-                    title={
-                      isCompleted ? "Mark as incomplete" : "Mark as completed"
+              </form>
+            </div>
+          )}
+
+          {/* Chapters */}
+          {chaptersSorted.map((chapter) => (
+            <div key={chapter.id} className="space-y-1">
+              <div
+                draggable
+                onDragStart={(e) => handleChapterDragStart(e, chapter.id)}
+                onDragOver={handleChapterDragOver}
+                onDrop={(e) => handleChapterDrop(e, chapter.id)}
+                className="group flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 px-3 py-2 text-sm font-medium text-muted-foreground"
+              >
+                <Folder size={14} />
+                <span className="flex-1 cursor-grab">{chapter.title}</span>
+                <button
+                  onClick={() => handleEditChapter(chapter)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded"
+                >
+                  <Edit size={12} />
+                </button>
+                <button
+                  onClick={() => handleDeleteChapter(chapter.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 text-destructive rounded"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+
+              {/* Chapter lessons */}
+              {chapter.lessons.map((lesson, idx) => {
+                const isActive = lesson.id === activeLessonId;
+                const isCompleted = completedLessonIds.includes(lesson.id);
+                return (
+                  <div
+                    key={lesson.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, lesson.id)}
+                    onDragOver={(e) => handleDragOver(e, lesson.id)}
+                    onDrop={(e) => handleDrop(e, lesson.id)}
+                    onClick={() =>
+                      setActiveLessonId(
+                        typeof lesson.id === "string" ? lesson.id : null,
+                      )
                     }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isCompleted) {
-                        unmarkCompleted.mutate({ lessonId: lesson.id });
-                      } else {
-                        markCompleted.mutate({ lessonId: lesson.id });
-                      }
-                    }}
-                    aria-label={
-                      isCompleted ? "Mark as incomplete" : "Mark as completed"
+                    className={
+                      "group flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm ml-4 " +
+                      (isActive
+                        ? "border-primary bg-primary/10"
+                        : "hover:border-accent hover:bg-accent border-transparent")
                     }
                   >
-                    {isCompleted ? (
-                      <CheckCircle size={18} className="text-green-500" />
-                    ) : (
-                      <Circle size={18} className="text-gray-400" />
+                    <div className="flex flex-1 items-start gap-2">
+                      <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
+                        ⋮⋮
+                      </span>
+                      <span
+                        className={
+                          "flex-1 truncate text-xs " +
+                          (isActive ? "text-primary font-medium" : "")
+                        }
+                      >
+                        {idx + 1}. {lesson.title || "Untitled"}
+                        {lesson.description && (
+                          <div
+                            className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                            title={lesson.description}
+                          >
+                            {lesson.description}
+                          </div>
+                        )}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeLesson(lesson.id);
+                        }}
+                        className="hover:bg-destructive/10 border-destructive/50 text-destructive rounded border px-1.5 py-0.5 text-[10px] opacity-0 transition group-hover:opacity-100"
+                        title="Delete lesson"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    {/* Completion toggle only for learners */}
+                    {isLearner && (
+                      <button
+                        className="ml-2"
+                        title={
+                          isCompleted ? "Mark as incomplete" : "Mark as completed"
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isCompleted) {
+                            unmarkCompleted.mutate({ lessonId: lesson.id });
+                          } else {
+                            markCompleted.mutate({ lessonId: lesson.id });
+                          }
+                        }}
+                        aria-label={
+                          isCompleted ? "Mark as incomplete" : "Mark as completed"
+                        }
+                      >
+                        {isCompleted ? (
+                          <CheckCircle size={18} className="text-green-500" />
+                        ) : (
+                          <Circle size={18} className="text-gray-400" />
+                        )}
+                      </button>
                     )}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
 
-          {lessonsSorted.length === 0 && (
+          {/* Main course lessons */}
+          {course?.lessons?.length > 0 && (
+            <>
+              {lessonsSorted.map((lesson, idx) => {
+                const isActive = lesson.id === activeLessonId;
+                const isCompleted = completedLessonIds.includes(lesson.id);
+                return (
+                  <div
+                    key={lesson.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, lesson.id)}
+                    onDragOver={(e) => handleDragOver(e, lesson.id)}
+                    onDrop={(e) => handleDrop(e, lesson.id)}
+                    onClick={() =>
+                      setActiveLessonId(
+                        typeof lesson.id === "string" ? lesson.id : null,
+                      )
+                    }
+                    className={
+                      "group flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm " +
+                      (isActive
+                        ? "border-primary bg-primary/10"
+                        : "hover:border-accent hover:bg-accent border-transparent")
+                    }
+                  >
+                    <div className="flex flex-1 items-start gap-2">
+                      <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
+                        ⋮⋮
+                      </span>
+                      <span
+                        className={
+                          "flex-1 truncate text-xs " +
+                          (isActive ? "text-primary font-medium" : "")
+                        }
+                      >
+                        {idx + 1}. {lesson.title || "Untitled"}
+                        {lesson.description && (
+                          <div
+                            className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                            title={lesson.description}
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              maxWidth: "100%",
+                            }}
+                          >
+                            {lesson.description}
+                          </div>
+                        )}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeLesson(lesson.id);
+                        }}
+                        className="hover:bg-destructive/10 border-destructive/50 text-destructive rounded border px-1.5 py-0.5 text-[10px] opacity-0 transition group-hover:opacity-100"
+                        title="Delete lesson"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    {/* Completion toggle only for learners */}
+                    {isLearner && (
+                      <button
+                        className="ml-2"
+                        title={
+                          isCompleted ? "Mark as incomplete" : "Mark as completed"
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isCompleted) {
+                            unmarkCompleted.mutate({ lessonId: lesson.id });
+                          } else {
+                            markCompleted.mutate({ lessonId: lesson.id });
+                          }
+                        }}
+                        aria-label={
+                          isCompleted ? "Mark as incomplete" : "Mark as completed"
+                        }
+                      >
+                        {isCompleted ? (
+                          <CheckCircle size={18} className="text-green-500" />
+                        ) : (
+                          <Circle size={18} className="text-gray-400" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {(!chaptersSorted.length && !lessonsSorted.length) && (
             <div className="text-muted-foreground text-xs">No lessons yet.</div>
           )}
+
+          <button
+            onClick={() => handleCreateChapter()}
+            disabled={createChapter.status === "pending"}
+            className="text-foreground hover:bg-accent group flex w-full items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm font-medium"
+          >
+            <Folder
+              size={16}
+              className="text-muted-foreground group-hover:text-foreground"
+            />
+            {createChapter.status === "pending" ? "Creating..." : "Add Chapter"}
+          </button>
 
           <button
             onClick={() => handleCreateLesson()}

@@ -22,7 +22,32 @@ export default async function CourseDashboardPage({
 
   const course = await db.course.findUnique({
     where: { slug },
-    include: { lessons: { orderBy: { order: "asc" } } },
+    include: {
+      lessons: { orderBy: { order: "asc" } },
+      chapters: {
+        orderBy: { order: "asc" },
+        include: {
+          lessons: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              description: true,
+              kind: true,
+              status: true,
+              content: true,
+              contentJson: true,
+              youtubeId: true,
+              order: true,
+              authorId: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!course) {
@@ -35,9 +60,36 @@ export default async function CourseDashboardPage({
     title: course.title,
     language: course.language,
     description: course.description ?? "",
+    poster: course.poster,
     createdAt: course.createdAt,
     updatedAt: course.updatedAt,
     authorId: course.authorId,
+    chapters: course.chapters.map((ch) => ({
+      id: ch.id,
+      slug: ch.slug,
+      title: ch.title,
+      description: ch.description,
+      poster: ch.poster,
+      order: ch.order,
+      createdAt: ch.createdAt,
+      updatedAt: ch.updatedAt,
+      courseId: ch.courseId,
+      lessons: ch.lessons.map((l) => ({
+        id: l.id,
+        slug: l.slug,
+        title: l.title,
+        description: l.description,
+        kind: l.kind,
+        status: l.status,
+        content: l.content,
+        contentJson: l.contentJson,
+        youtubeId: l.youtubeId,
+        order: l.order,
+        authorId: l.authorId,
+        createdAt: l.createdAt,
+        updatedAt: l.updatedAt,
+      })),
+    })),
     lessons: course.lessons.map((l) => ({
       id: l.id,
       slug: l.slug,

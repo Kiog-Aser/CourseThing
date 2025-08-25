@@ -384,3 +384,137 @@ export const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
   ),
 );
 Alert.displayName = "Alert";
+
+/* -------------------------------------------------------------------------------------------------
+ * File Upload
+ * -----------------------------------------------------------------------------------------------*/
+
+export function FileUpload({
+  onUpload,
+  currentImage,
+  accept = "image/*",
+  maxSizeText = "5MB",
+  placeholder = "Click to upload or drag and drop",
+  className = "",
+}: {
+  onUpload: (url: string) => void;
+  currentImage?: string | null;
+  accept?: string;
+  maxSizeText?: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (file: File) => {
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      onUpload(result.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDrop = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  }, []);
+
+  const handleDragOver = React.useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  return (
+    <div className={className}>
+      <div
+        className={cn(
+          "relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+          "hover:border-primary/50 hover:bg-primary/5",
+          isUploading && "opacity-50 pointer-events-none"
+        )}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFileSelect(file);
+          }}
+          className="hidden"
+        />
+
+        {currentImage ? (
+          <div className="space-y-4">
+            <img
+              src={currentImage}
+              alt="Current poster"
+              className="max-w-full h-32 object-cover rounded mx-auto"
+            />
+            <p className="text-sm text-muted-foreground">
+              Click to replace poster
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="text-4xl">📸</div>
+            <div>
+              <p className="text-sm font-medium">{placeholder}</p>
+              <p className="text-xs text-muted-foreground">
+                Max size: {maxSizeText}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isUploading && (
+          <div className="absolute inset-0 bg-background/80 rounded-lg flex items-center justify-center">
+            <div className="text-sm">Uploading...</div>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <p className="text-sm text-destructive mt-2">{error}</p>
+      )}
+    </div>
+  );
+}
