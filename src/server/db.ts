@@ -18,10 +18,6 @@ const globalForPrisma = globalThis as unknown as {
  * full model delegate typings again.
  */
 export const db = (globalForPrisma.prisma ??
-  createPrismaClient()) as PrismaClient & {
-  course: any;
-  lesson: any;
-  user: any;
-};
+  createPrismaClient()) as PrismaClient;
 
 if (env.NODE_ENV !== "production") globalForPrisma.prisma = db;

@@ -2,7 +2,14 @@
 
 import React from "react";
 import { api } from "~/trpc/react";
-import { Plus, Loader2, Rocket, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  Rocket,
+  Trash2,
+  CheckCircle,
+  Circle,
+} from "lucide-react";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -10,23 +17,9 @@ import { Plus, Loader2, Rocket, Trash2 } from "lucide-react";
 
 /* Video / status concepts removed – all lessons are plain text and implicitly published */
 
-export interface LessonData {
-  id: string;
-  slug: string;
-  title: string;
-  content: string;
-  contentJson: string;
-  order: number;
-}
+import type { RouterOutputs } from "~/trpc/react";
 
-export interface CourseData {
-  id: string;
-  slug: string;
-  title: string;
-  language: string;
-  description: string;
-  lessons: LessonData[];
-}
+type CourseData = NonNullable<RouterOutputs["course"]["bySlug"]>;
 
 export interface CourseManagerClientProps {
   slug: string;
@@ -56,21 +49,39 @@ const TipTapEditor = React.lazy(async () => {
   const StarterKit = (await import("@tiptap/starter-kit")).default;
   const Placeholder = (await import("@tiptap/extension-placeholder")).default;
 
+  // Helper to remove heading input rule from StarterKit
+  function removeHeadingInputRule(extensions: any[]) {
+    return extensions.map((ext) => {
+      if (ext.name === "heading" && ext.inputRules) {
+        // Remove inputRules so # is not converted to heading
+        return {
+          ...ext,
+          inputRules: () => [],
+        };
+      }
+      return ext;
+    });
+  }
+
   interface EditorWrapperProps {
-    json: Record<string, any>;
-    onUpdate: (json: Record<string, any>, text: string) => void;
+    json: Record<string, unknown>;
+    onUpdate: (json: Record<string, unknown>, text: string) => void;
     editable: boolean;
   }
   function EditorWrapper(props: EditorWrapperProps) {
+    const starterKit = StarterKit.configure({
+      heading: { levels: [1, 2, 3] },
+    });
+    // Remove heading input rule so # stays as text
+    const extensions = removeHeadingInputRule([
+      starterKit,
+      Placeholder.configure({
+        placeholder: "Start writing your lesson...",
+      }),
+    ]);
+
     const editor = useEditor({
-      extensions: [
-        StarterKit.configure({
-          heading: { levels: [1, 2, 3] },
-        }),
-        Placeholder.configure({
-          placeholder: "Start writing your lesson...",
-        }),
-      ],
+      extensions,
       content: props.json,
       editable: props.editable,
       onUpdate: ({ editor }) => {
@@ -108,6 +119,38 @@ export function CourseManagerClient({
   initialCourse,
 }: CourseManagerClientProps) {
   const utils = api.useUtils();
+
+  // --- Lesson Completion State ---
+  // Only fetch completion/progress for learners (not admins/creators)
+  const [isLearner, setIsLearner] = React.useState(false);
+
+  React.useEffect(() => {
+    // Simple heuristic: if window exists and no admin flag in localStorage/session, treat as learner
+    // You may want to replace this with a more robust role check from session/user context
+    if (typeof window !== "undefined") {
+      setIsLearner(!window.location.pathname.includes("/dashboard"));
+    }
+  }, []);
+
+  const courseId = initialCourse.id;
+  const { data: completedLessonIds = [], refetch: refetchCompletions } =
+    api.course.getLessonCompletions.useQuery(
+      { courseId },
+      { enabled: !!courseId && isLearner },
+    );
+
+  const markCompleted = api.course.markLessonCompleted.useMutation({
+    onSuccess: () => refetchCompletions(),
+  });
+  const unmarkCompleted = api.course.unmarkLessonCompleted.useMutation({
+    onSuccess: () => refetchCompletions(),
+  });
+
+  // Progress calculation
+  const totalLessons = initialCourse.lessons.length;
+  const completedCount = completedLessonIds.length;
+  const progressPercent =
+    totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
   const courseQuery = api.course.bySlug.useQuery(
     { slug },
@@ -172,7 +215,10 @@ export function CourseManagerClient({
   }, [activeLesson?.id]);
 
   // Lesson content tracking (JSON + dirty flag)
-  const [editorJson, setEditorJson] = React.useState<any>(null);
+  const [editorJson, setEditorJson] = React.useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [editorDirty, setEditorDirty] = React.useState(false);
   React.useEffect(() => {
     if (!activeLesson) {
@@ -181,7 +227,20 @@ export function CourseManagerClient({
     }
     if (activeLesson.contentJson) {
       try {
-        setEditorJson(JSON.parse(activeLesson.contentJson));
+        const parsed = JSON.parse(activeLesson.contentJson);
+        if (typeof parsed === "object" && parsed !== null) {
+          setEditorJson(parsed as Record<string, unknown>);
+        } else {
+          setEditorJson({
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: activeLesson.content ?? "" }],
+              },
+            ],
+          });
+        }
       } catch {
         setEditorJson({
           type: "doc",
@@ -304,16 +363,21 @@ export function CourseManagerClient({
   );
 
   function reorderLessons(ids: string[]) {
-    ids.forEach((id, index) => {
-      const lesson = lessonsSorted.find((l) => l.id === id);
-      if (lesson && lesson.order !== index) {
-        updateLesson.mutate({ id: lesson.id, data: { order: index } });
-      }
-    });
+    if (!Array.isArray(lessonsSorted)) return;
+    ids
+      .filter((id): id is string => typeof id === "string")
+      .forEach((id, index) => {
+        const lesson = lessonsSorted.find((l) => l.id === id);
+        if (lesson && lesson.order !== index) {
+          updateLesson.mutate({ id: lesson.id, data: { order: index } });
+        }
+      });
   }
 
-  function handleDragStart(e: React.DragEvent, id: string) {
-    setDraggingLessonId(id);
+  function handleDragStart(e: React.DragEvent, id: string | undefined) {
+    if (typeof id === "string") {
+      setDraggingLessonId(id);
+    }
     e.dataTransfer.effectAllowed = "move";
   }
 
@@ -322,10 +386,17 @@ export function CourseManagerClient({
     e.dataTransfer.dropEffect = "move";
   }
 
-  function handleDrop(e: React.DragEvent, dropId: string) {
+  function handleDrop(e: React.DragEvent, dropId: string | undefined) {
     e.preventDefault();
-    if (!draggingLessonId || draggingLessonId === dropId) return;
-    const ids = lessonsSorted.map((l) => l.id);
+    if (
+      typeof draggingLessonId !== "string" ||
+      typeof dropId !== "string" ||
+      draggingLessonId === dropId
+    )
+      return;
+    const ids = lessonsSorted
+      .map((l) => l.id)
+      .filter((id): id is string => typeof id === "string");
     const from = ids.indexOf(draggingLessonId);
     const to = ids.indexOf(dropId);
     if (from === -1 || to === -1) return;
@@ -338,9 +409,8 @@ export function CourseManagerClient({
     if (!confirm("Delete this lesson?")) return;
     deleteLesson.mutate({ id });
     if (activeLessonId === id) {
-      setActiveLessonId(
-        lessonsSorted.filter((l) => l.id !== id)[0]?.id ?? null,
-      );
+      const nextLesson = lessonsSorted.find((l) => l.id !== id);
+      setActiveLessonId(nextLesson ? nextLesson.id : null);
     }
   }
 
@@ -358,6 +428,28 @@ export function CourseManagerClient({
     <div className="flex min-h-screen flex-col md:flex-row">
       {/* Sidebar */}
       <aside className="bg-muted/30 w-full border-b p-4 md:w-72 md:border-r md:border-b-0">
+        {/* Progress Bar and completion UI only for learners */}
+        {isLearner && (
+          <div className="mb-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-muted-foreground text-xs font-medium">
+                Progress
+              </span>
+              <span className="text-primary text-xs font-semibold">
+                {progressPercent}%
+              </span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+              <div
+                className="bg-primary h-2.5 rounded-full transition-all"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
+            </div>
+            <div className="text-muted-foreground mt-1 text-right text-[10px]">
+              {completedCount} of {totalLessons} lessons completed
+            </div>
+          </div>
+        )}
         <div className="mb-4 flex items-center justify-between gap-2">
           <div className="flex-1">
             <input
@@ -375,6 +467,7 @@ export function CourseManagerClient({
         <nav className="space-y-1">
           {lessonsSorted.map((lesson, idx) => {
             const isActive = lesson.id === activeLessonId;
+            const isCompleted = completedLessonIds.includes(lesson.id);
             return (
               <div
                 key={lesson.id}
@@ -382,15 +475,19 @@ export function CourseManagerClient({
                 onDragStart={(e) => handleDragStart(e, lesson.id)}
                 onDragOver={(e) => handleDragOver(e, lesson.id)}
                 onDrop={(e) => handleDrop(e, lesson.id)}
-                onClick={() => setActiveLessonId(lesson.id)}
+                onClick={() =>
+                  setActiveLessonId(
+                    typeof lesson.id === "string" ? lesson.id : null,
+                  )
+                }
                 className={
-                  "group cursor-pointer rounded-md border px-3 py-2 text-sm " +
+                  "group flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm " +
                   (isActive
                     ? "border-primary bg-primary/10"
                     : "hover:border-accent hover:bg-accent border-transparent")
                 }
               >
-                <div className="flex items-start gap-2">
+                <div className="flex flex-1 items-start gap-2">
                   <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
                     ⋮⋮
                   </span>
@@ -413,6 +510,32 @@ export function CourseManagerClient({
                     <Trash2 size={12} />
                   </button>
                 </div>
+                {/* Completion toggle only for learners */}
+                {isLearner && (
+                  <button
+                    className="ml-2"
+                    title={
+                      isCompleted ? "Mark as incomplete" : "Mark as completed"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isCompleted) {
+                        unmarkCompleted.mutate({ lessonId: lesson.id });
+                      } else {
+                        markCompleted.mutate({ lessonId: lesson.id });
+                      }
+                    }}
+                    aria-label={
+                      isCompleted ? "Mark as incomplete" : "Mark as completed"
+                    }
+                  >
+                    {isCompleted ? (
+                      <CheckCircle size={18} className="text-green-500" />
+                    ) : (
+                      <Circle size={18} className="text-gray-400" />
+                    )}
+                  </button>
+                )}
               </div>
             );
           })}
@@ -448,9 +571,7 @@ export function CourseManagerClient({
                 ? "Course Published"
                 : publishing
                   ? "Publishing..."
-                  : `Publish Course (${unpublishedCount} draft${
-                      unpublishedCount > 1 ? "s" : ""
-                    })`}
+                  : `Publish Course (${typeof unpublishedCount === "number" && unpublishedCount > 1 ? `${unpublishedCount} drafts` : `${unpublishedCount} draft`})`}
             </button>
           </div>
         </nav>
@@ -494,7 +615,7 @@ export function CourseManagerClient({
                   }
                 >
                   <TipTapEditor
-                    json={editorJson}
+                    json={editorJson ?? { type: "doc", content: [] }}
                     editable
                     onUpdate={(json) => {
                       setEditorJson(json);

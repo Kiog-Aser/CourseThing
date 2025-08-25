@@ -39,6 +39,54 @@ function ensureAdmin(email: string | null | undefined) {
 }
 
 export const courseRouter = createTRPCRouter({
+  // --- Lesson Completion Endpoints ---
+  getLessonCompletions: protectedProcedure
+    .input(z.object({ courseId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Returns an array of lessonIds the current user has completed for this course
+      const completions = await ctx.db.lessonCompletion.findMany({
+        where: {
+          userId: ctx.session.user.id,
+          lesson: { courseId: input.courseId },
+        },
+        select: { lessonId: true },
+      });
+      return completions.map((c) => c.lessonId);
+    }),
+
+  markLessonCompleted: protectedProcedure
+    .input(z.object({ lessonId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Upsert to avoid duplicates
+      await ctx.db.lessonCompletion.upsert({
+        where: {
+          userId_lessonId: {
+            userId: ctx.session.user.id,
+            lessonId: input.lessonId,
+          },
+        },
+        update: {},
+        create: {
+          userId: ctx.session.user.id,
+          lessonId: input.lessonId,
+        },
+      });
+      return { success: true };
+    }),
+
+  unmarkLessonCompleted: protectedProcedure
+    .input(z.object({ lessonId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.lessonCompletion.deleteMany({
+        where: {
+          userId: ctx.session.user.id,
+          lessonId: input.lessonId,
+        },
+      });
+      return { success: true };
+    }),
+
+  // --- Existing Endpoints ---
   list: publicProcedure.query(async ({ ctx }) => {
     try {
       // Primary path: DB has the language column

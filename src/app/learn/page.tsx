@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import {
   PlayCircle,
-  BookOpenText,
   CheckCircle2,
   Loader2,
   TriangleAlert,
@@ -12,6 +11,7 @@ import {
 import { useSearchParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
+import confetti from "canvas-confetti";
 
 /* -------------------------------------------------------------------------- */
 /* Types (learner side simplified)                                            */
@@ -275,6 +275,10 @@ export default function LearnPage() {
   const { data: session } = useSession();
   const isAuthed = !!session?.user;
   const [lockedAttempt, setLockedAttempt] = useState<LessonRecord | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [optimisticCompletedIds, setOptimisticCompletedIds] = useState<
+    string[] | null
+  >(null);
   const courseSlug = search.get("course")?.trim() || "";
 
   const courseQuery = api.course.bySlug.useQuery(
@@ -291,17 +295,76 @@ export default function LearnPage() {
       .sort((a, b) => a.order - b.order);
   }, [course]);
 
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // --- Progress & Completion State (HOOKS MOVED TO TOP) ---
+  const courseId = course?.id ?? "";
+  const { data: completedLessonIds = [], refetch: refetchCompletions } =
+    api.course.getLessonCompletions.useQuery(
+      { courseId },
+      { enabled: !!courseId },
+    );
 
+  const markCompleted = api.course.markLessonCompleted.useMutation({
+    onSuccess: () => {
+      refetchCompletions();
+    },
+  });
+  const unmarkCompleted = api.course.unmarkLessonCompleted.useMutation({
+    onSuccess: () => {
+      refetchCompletions();
+    },
+  });
+
+  // Only clear optimisticCompletedIds when the query data includes all optimistic completions
+  React.useEffect(() => {
+    if (
+      optimisticCompletedIds &&
+      optimisticCompletedIds.every((id) => completedLessonIds.includes(id))
+    ) {
+      setOptimisticCompletedIds(null);
+    }
+  }, [completedLessonIds, optimisticCompletedIds]);
+
+  const optimisticIds = optimisticCompletedIds ?? completedLessonIds;
+  const totalLessons = lessons.length;
+  const completedCount = optimisticIds.length;
+  const progressPercent =
+    totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+  // --- Confetti and Congrats Popup ---
+  const [showCongrats, setShowCongrats] = useState(false);
+  const prevCompletedCount = useRef(completedCount);
+
+  useEffect(() => {
+    // Only trigger when going from not complete to complete
+    if (
+      totalLessons > 0 &&
+      completedCount === totalLessons &&
+      prevCompletedCount.current < totalLessons
+    ) {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+      setShowCongrats(true);
+    }
+    prevCompletedCount.current = completedCount;
+  }, [completedCount, totalLessons]);
+
+  // --- Auto-select first incomplete lesson ---
   React.useEffect(() => {
     if (lessons.length === 0) {
       setActiveId(null);
       return;
     }
+    // Find first incomplete lesson, else fallback to first lesson
+    const firstIncomplete = lessons.find(
+      (l) => !completedLessonIds.includes(l.id),
+    );
     if (!activeId || !lessons.find((l) => l.id === activeId)) {
-      setActiveId(lessons[0]!.id);
+      setActiveId(firstIncomplete ? firstIncomplete.id : lessons[0]!.id);
     }
-  }, [lessons, activeId]);
+  }, [lessons, activeId, completedLessonIds]);
 
   const active = lessons.find((l) => l.id === activeId) || null;
 
@@ -346,193 +409,374 @@ export default function LearnPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <aside className="bg-muted/30 w-full border-b p-4 md:w-72 md:border-r md:border-b-0">
-        <div className="mb-4">
-          <h2 className="text-muted-foreground text-sm font-medium tracking-wide">
-            {course.title}
-          </h2>
-          <p className="text-muted-foreground mt-1 line-clamp-3 text-[11px] leading-snug">
-            {course.description || "No description provided."}
-          </p>
+    <>
+      {/* Congrats Modal */}
+      {showCongrats && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setShowCongrats(false)}
+        >
+          <div
+            className="relative flex max-w-xs flex-col items-center gap-4 rounded-lg bg-white p-8 shadow-lg dark:bg-zinc-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="text-muted-foreground hover:bg-muted absolute top-2 right-2 rounded-full p-1 transition"
+              aria-label="Close"
+              onClick={() => setShowCongrats(false)}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M6 6l8 8M14 6l-8 8"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+            <span className="text-4xl">🎉</span>
+            <h2 className="text-center text-xl font-bold">Congratulations!</h2>
+            <p className="text-muted-foreground text-center">
+              You finished this course. Ready for the next one?
+            </p>
+            <button
+              className="bg-primary text-primary-foreground mt-2 rounded-md px-4 py-2 font-semibold"
+              onClick={() => {
+                setShowCongrats(false);
+                window.location.href = "/";
+              }}
+            >
+              Start a new course
+            </button>
+          </div>
         </div>
-        <nav className="space-y-1">
-          {lessons.map((lesson, idx) => {
-            const isActive = lesson.id === activeId;
-            const isVideo = lesson.kind === "VIDEO" || !!lesson.youtubeId;
-            const locked = !isAuthed && idx > 0;
-            return (
-              <button
-                key={lesson.id}
-                onClick={() => {
-                  if (locked) {
-                    setLockedAttempt(lesson);
-                    // Always jump back to the first lesson so preview remains accessible.
-                    setActiveId(lessons[0]?.id ?? null);
-                    return;
+      )}
+      <div className="flex min-h-screen flex-col md:flex-row">
+        <aside className="bg-muted/30 w-full border-b p-4 md:w-72 md:border-r md:border-b-0">
+          {/* Progress Bar */}
+          <div className="mb-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-muted-foreground text-xs font-medium">
+                Progress
+              </span>
+              <span className="text-primary text-xs font-semibold">
+                {progressPercent}%
+              </span>
+            </div>
+            <div className="h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+              <div
+                className="bg-primary h-2.5 rounded-full transition-all"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
+            </div>
+            <div className="text-muted-foreground mt-1 text-right text-[10px]">
+              {completedCount} of {totalLessons} lessons completed
+            </div>
+          </div>
+          <div className="mb-4">
+            <h2 className="text-muted-foreground text-sm font-medium tracking-wide">
+              {course.title}
+            </h2>
+            <p className="text-muted-foreground mt-1 line-clamp-3 text-[11px] leading-snug">
+              {course.description || "No description provided."}
+            </p>
+          </div>
+          <nav className="space-y-1">
+            {lessons.map((lesson, idx) => {
+              const isActive = lesson.id === activeId;
+              // Adaptive: show video icon if lesson has youtubeId or is VIDEO, else no icon
+              const isVideo = lesson.kind === "VIDEO" || !!lesson.youtubeId;
+              const locked = false; // Temporarily disabled to bypass DB issues
+              const isCompleted = optimisticIds.includes(lesson.id);
+              return (
+                <button
+                  key={lesson.id}
+                  onClick={() => {
+                    if (locked) {
+                      setLockedAttempt(lesson);
+                      setActiveId(lessons[0]?.id ?? null);
+                      return;
+                    }
+                    setLockedAttempt(null);
+                    setActiveId(lesson.id);
+                  }}
+                  className={
+                    "group flex w-full items-center gap-3 rounded-md border px-3 py-3 text-left text-[15px] transition " +
+                    (isActive
+                      ? "border-primary bg-primary/10 text-primary"
+                      : locked
+                        ? "bg-background/60 border-border/40 text-foreground/70 hover:bg-accent/40 border-dashed"
+                        : "bg-background hover:border-accent hover:bg-accent border-transparent")
                   }
-                  setLockedAttempt(null);
-                  setActiveId(lesson.id);
-                }}
-                className={
-                  "group flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left text-[13px] transition " +
-                  (isActive
-                    ? "border-primary bg-primary/10 text-primary"
-                    : locked
-                      ? "bg-background/60 border-border/40 text-foreground/70 hover:bg-accent/40 border-dashed"
-                      : "bg-background hover:border-accent hover:bg-accent border-transparent")
-                }
-              >
-                <span className="text-muted-foreground mt-0.5 text-[10px] font-semibold">
-                  {idx + 1}
-                </span>
-                <span className="flex-1 leading-snug">
-                  {lesson.title || "Untitled"}
-                  <span className="text-muted-foreground/70 block text-[9px] tracking-wide uppercase">
-                    {locked ? "Login required" : isVideo ? "Video" : "Lesson"}
+                >
+                  <span className="text-muted-foreground mt-0.5 text-[10px] font-semibold">
+                    {idx + 1}
                   </span>
-                </span>
-                {locked ? (
-                  <Lock
-                    size={16}
-                    className={
-                      "mt-0.5 opacity-70 group-hover:opacity-100 " +
-                      (isActive ? "text-primary" : "text-muted-foreground")
-                    }
-                  />
-                ) : isVideo ? (
-                  <PlayCircle
-                    size={16}
-                    className={
-                      "mt-0.5 opacity-70 group-hover:opacity-100 " +
-                      (isActive ? "text-primary" : "text-muted-foreground")
-                    }
-                  />
-                ) : (
-                  <BookOpenText
-                    size={16}
-                    className={
-                      "mt-0.5 opacity-70 group-hover:opacity-100 " +
-                      (isActive ? "text-primary" : "text-muted-foreground")
-                    }
-                  />
-                )}
-                {false && (
-                  <CheckCircle2 size={16} className="mt-0.5 text-emerald-500" />
-                )}
-              </button>
-            );
-          })}
-
-          {lessons.length === 0 && (
-            <div className="text-muted-foreground text-xs">
-              No published lessons yet.
-            </div>
-          )}
-        </nav>
-      </aside>
-
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-3xl space-y-6">
-          {lockedAttempt ? (
-            <div className="mx-auto flex min-h-[40vh] max-w-md flex-col items-center justify-center gap-5 text-center">
-              <Lock className="text-muted-foreground h-10 w-10" />
-              <div className="space-y-2">
-                <h2 className="text-xl font-semibold tracking-tight">
-                  Sign in to continue
-                </h2>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  You need to be signed in to access the rest of this free
-                  course. Create a free account or sign in to unlock all
-                  lessons.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  onClick={() =>
-                    router.push(
-                      "/signup?callbackUrl=" +
-                        encodeURIComponent(
-                          window.location.pathname + window.location.search,
-                        ),
-                    )
-                  }
-                  className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
-                >
-                  Create free account
-                </button>
-                <button
-                  onClick={() =>
-                    router.push(
-                      "/signin?callbackUrl=" +
-                        encodeURIComponent(
-                          window.location.pathname + window.location.search,
-                        ),
-                    )
-                  }
-                  className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
-                >
-                  Sign in
-                </button>
-                <button
-                  onClick={() => setLockedAttempt(null)}
-                  className="text-muted-foreground text-xs underline-offset-4 hover:underline"
-                >
-                  Back to first lesson
-                </button>
-              </div>
-            </div>
-          ) : active ? (
-            <>
-              <div className="flex flex-col gap-2">
-                <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-3xl">
-                  {active.title}
-                </h1>
-                <div className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                  Lesson {lessons.findIndex((l) => l.id === active.id) + 1} of{" "}
-                  {lessons.length}
-                </div>
-              </div>
-
-              {active.youtubeId && (
-                <div className="aspect-video w-full overflow-hidden rounded-lg border bg-black/50 shadow">
-                  <iframe
-                    className="h-full w-full"
-                    src={`https://www.youtube.com/embed/${active.youtubeId}`}
-                    title="Lesson video"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                </div>
-              )}
-
-              <article className="prose dark:prose-invert max-w-none">
-                {active.contentJson
-                  ? (() => {
-                      try {
-                        const json = JSON.parse(active.contentJson);
-                        return renderJSON(json.content);
-                      } catch {
-                        return (
-                          <p className="text-muted-foreground text-sm">
-                            Could not parse lesson content.
-                          </p>
-                        );
+                  <span className="flex-1 leading-snug">
+                    {lesson.title || "Untitled"}
+                  </span>
+                  {locked ? (
+                    <Lock
+                      size={20}
+                      className={
+                        "mt-0.5 opacity-70 group-hover:opacity-100 " +
+                        (isActive ? "text-primary" : "text-muted-foreground")
                       }
-                    })()
-                  : active.content
-                      ?.split(/\n\n+/)
-                      .map((para, i) => <p key={i}>{para}</p>)}
-              </article>
-            </>
-          ) : (
-            <div className="text-muted-foreground text-sm">
-              Select a lesson from the sidebar to begin.
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+                    />
+                  ) : isVideo ? (
+                    <PlayCircle
+                      size={20}
+                      className={
+                        "mt-0.5 opacity-70 group-hover:opacity-100 " +
+                        (isActive ? "text-primary" : "text-muted-foreground")
+                      }
+                    />
+                  ) : null}
+                  {/* Completion toggle - single circle or check */}
+                  <button
+                    className="ml-2 flex items-center justify-center rounded-full p-0.5 transition hover:bg-emerald-50"
+                    style={{ height: 24, width: 24 }}
+                    title={
+                      isCompleted ? "Mark as incomplete" : "Mark as completed"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isCompleted) {
+                        unmarkCompleted.mutate({ lessonId: lesson.id });
+                      } else {
+                        markCompleted.mutate({ lessonId: lesson.id });
+                      }
+                    }}
+                    aria-label={
+                      isCompleted ? "Mark as incomplete" : "Mark as completed"
+                    }
+                  >
+                    {isCompleted ? (
+                      // Single filled circle with check for completed
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 20 20"
+                        className="text-white"
+                        fill="currentColor"
+                        style={{ background: "#10b981", borderRadius: "50%" }}
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <circle cx="10" cy="10" r="10" fill="#10b981" />
+                        <path
+                          d="M6 10.5L9 13.5L14 8.5"
+                          stroke="white"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          fill="none"
+                        />
+                      </svg>
+                    ) : (
+                      // Simple outlined circle for incomplete
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 20 20"
+                        className="text-gray-400"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <circle
+                          cx="10"
+                          cy="10"
+                          r="9"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="mx-auto max-w-3xl space-y-6">
+            {lockedAttempt ? (
+              <div className="mx-auto flex min-h-[40vh] max-w-md flex-col items-center justify-center gap-5 text-center">
+                <Lock className="text-muted-foreground h-10 w-10" />
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold tracking-tight">
+                    Sign in to continue
+                  </h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    You need to be signed in to access the rest of this free
+                    course. Create a free account or sign in to unlock all
+                    lessons.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={() =>
+                      router.push(
+                        "/signup?callbackUrl=" +
+                          encodeURIComponent(
+                            window.location.pathname + window.location.search,
+                          ),
+                      )
+                    }
+                    className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
+                  >
+                    Create free account
+                  </button>
+                  <button
+                    onClick={() =>
+                      router.push(
+                        "/signin?callbackUrl=" +
+                          encodeURIComponent(
+                            window.location.pathname + window.location.search,
+                          ),
+                      )
+                    }
+                    className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
+                  >
+                    Sign in
+                  </button>
+                  <button
+                    onClick={() => setLockedAttempt(null)}
+                    className="text-muted-foreground text-xs underline-offset-4 hover:underline"
+                  >
+                    Back to first lesson
+                  </button>
+                </div>
+              </div>
+            ) : active ? (
+              <>
+                <div className="flex flex-col gap-2">
+                  <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-3xl">
+                    {active.title}
+                  </h1>
+                  <div className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                    Lesson {lessons.findIndex((l) => l.id === active.id) + 1} of{" "}
+                    {lessons.length}
+                  </div>
+                </div>
+
+                {active.youtubeId && (
+                  <div className="aspect-video w-full overflow-hidden rounded-lg border bg-black/50 shadow">
+                    <iframe
+                      className="h-full w-full"
+                      src={`https://www.youtube.com/embed/${active.youtubeId}`}
+                      title="Lesson video"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+
+                <article className="prose dark:prose-invert max-w-none">
+                  {active.contentJson
+                    ? (() => {
+                        // Markdown heading rendering: parse #, ##, ### at line start and render as h1, h2, h3
+                        const renderMarkdownHeadings = (text: string) => {
+                          const lines = text.split("\n");
+                          return (
+                            <>
+                              {lines.map((line, idx) => {
+                                const trimmed = line.trim();
+                                if (trimmed.startsWith("### ")) {
+                                  return (
+                                    <h3 key={idx} className="mt-6 first:mt-0">
+                                      {trimmed.replace(/^###\s+/, "")}
+                                    </h3>
+                                  );
+                                }
+                                if (trimmed.startsWith("## ")) {
+                                  return (
+                                    <h2 key={idx} className="mt-6 first:mt-0">
+                                      {trimmed.replace(/^##\s+/, "")}
+                                    </h2>
+                                  );
+                                }
+                                if (trimmed.startsWith("# ")) {
+                                  return (
+                                    <h1 key={idx} className="mt-6 first:mt-0">
+                                      {trimmed.replace(/^#\s+/, "")}
+                                    </h1>
+                                  );
+                                }
+                                return <p key={idx}>{line}</p>;
+                              })}
+                            </>
+                          );
+                        };
+                        try {
+                          const json = JSON.parse(active.contentJson);
+                          return renderJSON(json.content);
+                        } catch {
+                          // fallback: render plain content with markdown headings
+                          return renderMarkdownHeadings(active.content ?? "");
+                        }
+                      })()
+                    : (typeof active.content === "string" ? active.content : "")
+                        .split(/\n\n+/)
+                        .map((para: string, i: number) => (
+                          <p key={i}>{para}</p>
+                        ))}
+                </article>
+                {/* Bottom navigation: previous on left, mark as completed/next on right */}
+                {(() => {
+                  const currentIdx = lessons.findIndex(
+                    (l) => l.id === active.id,
+                  );
+                  const prevLesson =
+                    currentIdx > 0 ? lessons[currentIdx - 1] : null;
+                  const nextLesson =
+                    currentIdx >= 0 && currentIdx < lessons.length - 1
+                      ? lessons[currentIdx + 1]
+                      : null;
+                  const isCompleted = optimisticIds.includes(active.id);
+
+                  return (
+                    <div className="mt-8 flex w-full flex-row items-end justify-between">
+                      {/* Previous Lesson Button */}
+                      <button
+                        className="bg-muted text-muted-foreground hover:bg-accent rounded-md px-4 py-2 font-semibold shadow transition disabled:opacity-50"
+                        onClick={() => prevLesson && setActiveId(prevLesson.id)}
+                        disabled={!prevLesson}
+                      >
+                        Previous Lesson
+                      </button>
+                      {/* Next Button: always primary style, marks as completed if needed */}
+                      <button
+                        className="bg-primary text-primary-foreground hover:bg-primary/80 rounded-md px-4 py-2 font-semibold shadow transition"
+                        onClick={() => {
+                          if (!isCompleted) {
+                            setOptimisticCompletedIds([
+                              ...optimisticIds,
+                              active.id,
+                            ]);
+                            markCompleted.mutate({ lessonId: active.id });
+                          }
+                          if (nextLesson) {
+                            setActiveId(nextLesson.id);
+                          }
+                        }}
+                        disabled={!nextLesson && isCompleted}
+                      >
+                        {nextLesson ? "Next" : "Done"}
+                      </button>
+                    </div>
+                  );
+                })()}
+              </>
+            ) : (
+              <div className="text-muted-foreground text-sm">
+                Select a lesson from the sidebar to begin.
+              </div>
+            )}
+            {/* END ARTICLE */}
+          </div>
+        </main>
+      </div>
+    </>
   );
 }

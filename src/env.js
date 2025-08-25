@@ -15,6 +15,12 @@ export const env = createEnv({
       .string()
       .url()
       .default("postgresql://localhost:5432/moo_dev"),
+    // Direct (non-pooled) URL for migrations / long-lived operations.
+    // In Supabase, use the non-pooler host (no `.pooler.`) with sslmode=require.
+    DIRECT_DATABASE_URL: z
+      .string()
+      .url()
+      .default("postgresql://localhost:5432/moo_dev"),
     GOOGLE_CLIENT_ID: z.string().min(1).default("placeholder-google-client-id"),
     GOOGLE_CLIENT_SECRET: z
       .string()
@@ -52,6 +58,8 @@ export const env = createEnv({
     AUTH_SECRET: process.env.AUTH_SECRET || "dev-secret-for-testing",
     DATABASE_URL:
       process.env.DATABASE_URL || "postgresql://localhost:5432/moo_dev",
+    DIRECT_DATABASE_URL:
+      process.env.DIRECT_DATABASE_URL || "postgresql://localhost:5432/moo_dev",
     GOOGLE_CLIENT_ID:
       process.env.GOOGLE_CLIENT_ID || "placeholder-google-client-id",
     GOOGLE_CLIENT_SECRET:
