@@ -15,6 +15,17 @@ const config = {
     // Run `npm run check` in CI to enforce strictness separately if desired.
     ignoreBuildErrors: true,
   },
+  images: {
+    // Allow Vercel Blob storage URLs for course posters
+    domains: ['*.vercel-blob.com', '*.vercel.app'],
+    // Also allow any HTTPS images (more permissive for development)
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
+  },
 };
 
 export default config;
