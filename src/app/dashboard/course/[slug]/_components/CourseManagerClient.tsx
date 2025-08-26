@@ -27,7 +27,7 @@ type LessonWithDescription = {
   slug: string;
   title: string;
   description?: string | null;
-  kind: string;
+  kind: "VIDEO" | "TEXT";
   status: string;
   content?: string | null;
   contentJson?: string | null;
@@ -92,6 +92,7 @@ const TipTapEditor = React.lazy(async () => {
   const { useEditor, EditorContent } = await import("@tiptap/react");
   const StarterKit = (await import("@tiptap/starter-kit")).default;
   const Placeholder = (await import("@tiptap/extension-placeholder")).default;
+  const Image = (await import("@tiptap/extension-image")).default;
 
   // Helper to remove heading input rule from StarterKit
   function removeHeadingInputRule(extensions: any[]) {
@@ -112,6 +113,29 @@ const TipTapEditor = React.lazy(async () => {
     onUpdate: (json: Record<string, unknown>, text: string) => void;
     editable: boolean;
   }
+
+  // Helper function to upload image and return URL
+  async function uploadImage(file: File): Promise<string | null> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      return null;
+    }
+  }
   function EditorWrapper(props: EditorWrapperProps) {
     const starterKit = StarterKit.configure({
       heading: { levels: [1, 2, 3] },
@@ -121,6 +145,11 @@ const TipTapEditor = React.lazy(async () => {
       starterKit,
       Placeholder.configure({
         placeholder: "Start writing your lesson...",
+      }),
+      Image.configure({
+        HTMLAttributes: {
+          class: 'max-w-full h-auto rounded-lg',
+        },
       }),
     ]);
 
@@ -133,6 +162,46 @@ const TipTapEditor = React.lazy(async () => {
       },
     });
 
+    // Handle file drop
+    const handleDrop = React.useCallback(async (event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const files = Array.from(event.dataTransfer.files);
+      const imageFiles = files.filter(file => file.type.startsWith('image/'));
+
+      if (imageFiles.length > 0 && editor) {
+        for (const file of imageFiles) {
+          const url = await uploadImage(file);
+          if (url) {
+            editor.chain().focus().setImage({ src: url, alt: file.name }).run();
+          }
+        }
+      }
+    }, [editor]);
+
+    // Handle file paste
+    const handlePaste = React.useCallback(async (event: React.ClipboardEvent) => {
+      const files = Array.from(event.clipboardData.files);
+      const imageFiles = files.filter(file => file.type.startsWith('image/'));
+
+      if (imageFiles.length > 0 && editor) {
+        event.preventDefault();
+        for (const file of imageFiles) {
+          const url = await uploadImage(file);
+          if (url) {
+            editor.chain().focus().setImage({ src: url, alt: file.name }).run();
+          }
+        }
+      }
+    }, [editor]);
+
+    // Handle drag over to allow drop
+    const handleDragOver = React.useCallback((event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+    }, []);
+
     React.useEffect(() => {
       if (editor) editor.setEditable(props.editable);
     }, [props.editable, editor]);
@@ -143,6 +212,9 @@ const TipTapEditor = React.lazy(async () => {
       <div className="min-h-[500px] cursor-text rounded-md py-4">
         <EditorContent
           editor={editor}
+          onDrop={handleDrop}
+          onPaste={handlePaste}
+          onDragOver={handleDragOver}
           className="prose dark:prose-invert min-h-[400px] max-w-none border-0 px-0 text-base ring-0 outline-none focus:outline-none [&_.ProseMirror]:border-0 [&_.ProseMirror]:ring-0 [&_.ProseMirror]:outline-none [&_.ProseMirror_h1]:mt-0 [&_.ProseMirror_h2]:mt-0 [&_.ProseMirror_p]:m-0"
         />
       </div>
@@ -951,7 +1023,7 @@ export function CourseManagerClient({
               <button
                 onClick={() => handleCreateLesson(chapter.id)}
                 disabled={addLesson.status === "pending"}
-                className="text-foreground hover:bg-accent group mx-2 flex w-full items-center gap-2 rounded-md border border-dashed px-2.5 py-2 text-sm font-medium"
+                className="text-foreground hover:bg-accent group mx-2 flex w-60 items-center gap-2 rounded-md border border-dashed px-2.5 py-2 text-sm font-medium"
               >
                 <Plus
                   size={12}

@@ -89,6 +89,7 @@ function renderJSON(
           if (
             [
               "youtube",
+              "image",
               "codeBlock",
               "orderedList",
               "bulletList",
@@ -197,6 +198,31 @@ function renderJSON(
                 allowFullScreen
               />
             </div>,
+          );
+        }
+        break;
+      }
+      case "image": {
+        const src: string | undefined = node.attrs?.src;
+        const alt: string = node.attrs?.alt || "";
+        const caption: string = node.attrs?.caption || "";
+        if (src) {
+          out.push(
+            <div key={key} className="my-6">
+              <div className="relative overflow-hidden rounded-lg border bg-muted/20">
+                <img
+                  src={src}
+                  alt={alt}
+                  className="w-full h-auto object-cover"
+                  style={{ maxHeight: '600px' }}
+                />
+              </div>
+              {caption && (
+                <p className="text-muted-foreground text-sm text-center mt-2 italic">
+                  {caption}
+                </p>
+              )}
+            </div>
           );
         }
         break;

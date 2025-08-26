@@ -252,19 +252,20 @@ export default function CourseOverviewPage() {
                                     key={lesson.id}
                                     className="bg-background hover:bg-muted/20 flex items-center justify-between rounded-lg border p-3 transition-colors"
                                   >
-                                    <div className="flex items-center gap-3">
-                                      <div className="text-muted-foreground flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium">
-                                        {chapterIndex + 1}.{lessonIndex + 1}
+                                                                          <div className="flex items-center gap-3">
+                                        <div className="text-muted-foreground flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium">
+                                          {chapterIndex + 1}.{lessonIndex + 1}
+                                        </div>
+                                        <div className="flex-1">
+                                          <h5 className="text-sm font-medium">{lesson.title}</h5>
+                                          {lesson.description && (
+                                            <p className="text-muted-foreground mt-1 text-xs line-clamp-1">
+                                              {lesson.description}
+                                            </p>
+                                          )}
+
+                                        </div>
                                       </div>
-                                      <div className="flex-1">
-                                        <h5 className="text-sm font-medium">{lesson.title}</h5>
-                                        {lesson.description && (
-                                          <p className="text-muted-foreground mt-1 text-xs line-clamp-1">
-                                            {lesson.description}
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
                                     <Link
                                       href={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
                                       className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
