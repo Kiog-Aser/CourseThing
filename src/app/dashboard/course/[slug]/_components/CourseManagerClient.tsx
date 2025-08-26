@@ -2,6 +2,7 @@
 
 import React from "react";
 import { api } from "~/trpc/react";
+import { truncateWords } from "~/lib/utils";
 import {
   Plus,
   Loader2,
@@ -93,6 +94,7 @@ const TipTapEditor = React.lazy(async () => {
   const StarterKit = (await import("@tiptap/starter-kit")).default;
   const Placeholder = (await import("@tiptap/extension-placeholder")).default;
   const Image = (await import("@tiptap/extension-image")).default;
+  const Link = (await import("@tiptap/extension-link")).default;
 
   // Helper to remove heading input rule from StarterKit
   function removeHeadingInputRule(extensions: any[]) {
@@ -149,6 +151,12 @@ const TipTapEditor = React.lazy(async () => {
       Image.configure({
         HTMLAttributes: {
           class: 'max-w-full h-auto rounded-lg',
+        },
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline hover:text-primary/80',
         },
       }),
     ]);
@@ -960,10 +968,10 @@ export function CourseManagerClient({
                           {idx + 1}. {lesson.title || "Untitled"}
                           {lesson.description && (
                             <div
-                              className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                              className="text-muted-foreground mt-0.5 text-[11px] leading-tight"
                               title={lesson.description}
                             >
-                              {lesson.description}
+                              {truncateWords(lesson.description, 5)}
                             </div>
                           )}
                         </span>
@@ -1063,30 +1071,22 @@ export function CourseManagerClient({
                       <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
                         ⋮⋮
                       </span>
-                      <span
-                        className={
-                          "flex-1 truncate text-xs " +
-                          (isActive ? "text-primary font-medium" : "")
-                        }
-                      >
-                        {idx + 1}. {lesson.title || "Untitled"}
-                        {lesson.description && (
-                          <div
-                            className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
-                            title={lesson.description}
-                            style={{
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              maxWidth: "100%",
-                            }}
-                          >
-                            {lesson.description}
-                          </div>
-                        )}
-                      </span>
+                                              <span
+                          className={
+                            "flex-1 text-xs " +
+                            (isActive ? "text-primary font-medium" : "")
+                          }
+                        >
+                          {idx + 1}. {lesson.title || "Untitled"}
+                          {lesson.description && (
+                            <div
+                              className="text-muted-foreground mt-0.5 text-[11px] leading-tight"
+                              title={lesson.description}
+                            >
+                              {truncateWords(lesson.description, 5)}
+                            </div>
+                          )}
+                        </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

@@ -15,6 +15,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { useSession } from "next-auth/react";
 import CreativeFunSubscriptionGuard from "~/components/CreativeFunSubscriptionGuard";
+import { truncateWords } from "~/lib/utils";
 import confetti from "canvas-confetti";
 
 /* -------------------------------------------------------------------------- */
@@ -289,6 +290,22 @@ function renderJSON(
             </em>
           );
         }
+        if (marks.includes("link")) {
+          const linkMark = node.marks?.find((m) => m.type === "link");
+          const href = linkMark?.attrs?.href || "#";
+          const target = linkMark?.attrs?.target || "_blank";
+          el = (
+            <a
+              key={key}
+              href={href}
+              target={target}
+              rel={target === "_blank" ? "noopener noreferrer" : undefined}
+              className="text-primary underline hover:text-primary/80"
+            >
+              {el}
+            </a>
+          );
+        }
         out.push(<React.Fragment key={key}>{el}</React.Fragment>);
         break;
       }
@@ -434,7 +451,14 @@ export default function LearnPage() {
       const targetChapter = course.chapters.find((c) => c.slug === chapterSlug);
       if (targetChapter && targetChapter.lessons.length > 0) {
         // Expand the chapter
-        setExpandedChapters((prev) => new Set([...prev, targetChapter.id]));
+        setExpandedChapters((prev) => {
+          const newSet = new Set(prev);
+          if (!newSet.has(targetChapter.id)) {
+            newSet.add(targetChapter.id);
+            return newSet;
+          }
+          return prev; // Don't update if already expanded
+        });
         // Select first lesson in chapter if not already selected
         if (
           !activeId ||
@@ -453,7 +477,7 @@ export default function LearnPage() {
     if (!activeId || !lessons.find((l) => l.id === activeId)) {
       setActiveId(firstIncomplete ? firstIncomplete.id : lessons[0]!.id);
     }
-  }, [lessons, activeId, completedLessonIds, chapterSlug, course]);
+  }, [lessons.length, activeId, completedLessonIds.length, chapterSlug, course?.id]);
 
   const active = lessons.find((l) => l.id === activeId) || null;
 
@@ -680,18 +704,10 @@ export default function LearnPage() {
                             {lesson.title || "Untitled"}
                             {lesson.description && (
                               <div
-                                className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                                className="text-muted-foreground mt-0.5 text-[11px] leading-tight"
                                 title={lesson.description}
-                                style={{
-                                  display: "-webkit-box",
-                                  WebkitLineClamp: 2,
-                                  WebkitBoxOrient: "vertical",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  maxWidth: "100%",
-                                }}
                               >
-                                {lesson.description}
+                                {truncateWords(lesson.description, 5)}
                               </div>
                             )}
                           </span>
@@ -718,7 +734,7 @@ export default function LearnPage() {
                           ) : null}
                           {/* Completion toggle */}
                           <span
-                            className="ml-2 flex items-center justify-center rounded-full p-0.5 transition hover:bg-emerald-50"
+                            className="ml-2 flex items-center justify-center rounded-full p-0.5 transition"
                             style={{ height: 20, width: 20, cursor: "pointer" }}
                             title={
                               isCompleted
@@ -839,18 +855,10 @@ export default function LearnPage() {
                     {lesson.title || "Untitled"}
                     {lesson.description && (
                       <div
-                        className="text-muted-foreground mt-0.5 truncate text-[11px] leading-tight"
+                        className="text-muted-foreground mt-0.5 text-[11px] leading-tight"
                         title={lesson.description}
-                        style={{
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          maxWidth: "100%",
-                        }}
                       >
-                        {lesson.description}
+                        {truncateWords(lesson.description, 5)}
                       </div>
                     )}
                   </span>
@@ -1084,41 +1092,167 @@ export default function LearnPage() {
                         // Markdown heading rendering: parse #, ##, ### at line start and render as h1, h2, h3
                         const renderMarkdownHeadings = (text: string) => {
                           const lines = text.split("\n");
-                          return (
-                            <>
-                              {lines.map((line, idx) => {
-                                const trimmed = line.trim();
-                                if (trimmed.startsWith("### ")) {
-                                  return (
-                                    <h3 key={idx} className="mt-6 first:mt-0">
-                                      {trimmed.replace(/^###\s+/, "")}
-                                    </h3>
+                          const paragraphs: React.ReactNode[] = [];
+                          let currentParagraph: string[] = [];
+
+                          lines.forEach((line, idx) => {
+                            const trimmed = line.trim();
+
+                            // Handle headings
+                            if (trimmed.startsWith("### ")) {
+                              if (currentParagraph.length > 0) {
+                                paragraphs.push(
+                                  <p key={`p-${paragraphs.length}`} className="mb-4">
+                                    {currentParagraph.map((text, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && <br />}
+                                        {text}
+                                      </React.Fragment>
+                                    ))}
+                                  </p>
+                                );
+                                currentParagraph = [];
+                              }
+                              paragraphs.push(
+                                <h3 key={idx} className="mt-6 first:mt-0">
+                                  {trimmed.replace(/^###\s+/, "")}
+                                </h3>
+                              );
+                            } else if (trimmed.startsWith("## ")) {
+                              if (currentParagraph.length > 0) {
+                                paragraphs.push(
+                                  <p key={`p-${paragraphs.length}`} className="mb-4">
+                                    {currentParagraph.map((text, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && <br />}
+                                        {text}
+                                      </React.Fragment>
+                                    ))}
+                                  </p>
+                                );
+                                currentParagraph = [];
+                              }
+                              paragraphs.push(
+                                <h2 key={idx} className="mt-6 first:mt-0">
+                                  {trimmed.replace(/^##\s+/, "")}
+                                </h2>
+                              );
+                            } else if (trimmed.startsWith("# ")) {
+                              if (currentParagraph.length > 0) {
+                                paragraphs.push(
+                                  <p key={`p-${paragraphs.length}`} className="mb-4">
+                                    {currentParagraph.map((text, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && <br />}
+                                        {text}
+                                      </React.Fragment>
+                                    ))}
+                                  </p>
+                                );
+                                currentParagraph = [];
+                              }
+                              paragraphs.push(
+                                <h1 key={idx} className="mt-6 first:mt-0">
+                                  {trimmed.replace(/^#\s+/, "")}
+                                </h1>
+                              );
+                            } else if (trimmed === "") {
+                              // Empty line - end current paragraph and add spacing
+                              if (currentParagraph.length > 0) {
+                                paragraphs.push(
+                                  <p key={`p-${paragraphs.length}`} className="mb-4">
+                                    {currentParagraph.map((text, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && <br />}
+                                        {text}
+                                      </React.Fragment>
+                                    ))}
+                                  </p>
+                                );
+                                currentParagraph = [];
+                              }
+                              // Add a spacer div for empty lines to create visual separation
+                              paragraphs.push(<div key={`spacer-${paragraphs.length}`} className="h-4" />);
+                            } else {
+                              // Check for markdown links [text](url) in the line
+                              const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                              let processedLine = line;
+                              const links: { text: string; url: string; index: number }[] = [];
+                              let match;
+
+                              while ((match = linkRegex.exec(line)) !== null) {
+                                links.push({
+                                  text: match[1],
+                                  url: match[2],
+                                  index: match.index
+                                });
+                              }
+
+                              if (links.length > 0) {
+                                // Replace markdown links with React elements
+                                const parts: (string | React.ReactNode)[] = [];
+                                let lastIndex = 0;
+
+                                links.forEach((link, linkIdx) => {
+                                  // Add text before the link
+                                  if (link.index > lastIndex) {
+                                    parts.push(line.slice(lastIndex, link.index));
+                                  }
+
+                                  // Add the link
+                                  parts.push(
+                                    <a
+                                      key={`link-${idx}-${linkIdx}`}
+                                      href={link.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary underline hover:text-primary/80"
+                                    >
+                                      {link.text}
+                                    </a>
                                   );
+
+                                  lastIndex = link.index + match![0].length;
+                                });
+
+                                // Add remaining text after the last link
+                                if (lastIndex < line.length) {
+                                  parts.push(line.slice(lastIndex));
                                 }
-                                if (trimmed.startsWith("## ")) {
-                                  return (
-                                    <h2 key={idx} className="mt-6 first:mt-0">
-                                      {trimmed.replace(/^##\s+/, "")}
-                                    </h2>
-                                  );
-                                }
-                                if (trimmed.startsWith("# ")) {
-                                  return (
-                                    <h1 key={idx} className="mt-6 first:mt-0">
-                                      {trimmed.replace(/^#\s+/, "")}
-                                    </h1>
-                                  );
-                                }
-                                return <p key={idx}>{line}</p>;
-                              })}
-                            </>
-                          );
+
+                                currentParagraph.push(
+                                  <span key={`text-with-links-${idx}`}>
+                                    {parts}
+                                  </span>
+                                );
+                              } else {
+                                // Regular line without links
+                                currentParagraph.push(line);
+                              }
+                            }
+                          });
+
+                          // Handle any remaining content
+                          if (currentParagraph.length > 0) {
+                            paragraphs.push(
+                              <p key={`p-${paragraphs.length}`} className="mb-4">
+                                {currentParagraph.map((text, i) => (
+                                  <React.Fragment key={i}>
+                                    {i > 0 && <br />}
+                                    {text}
+                                  </React.Fragment>
+                                ))}
+                              </p>
+                            );
+                          }
+
+                          return <>{paragraphs}</>;
                         };
                         try {
                           const json = JSON.parse(active.contentJson);
                           return renderJSON(json.content);
                         } catch {
-                          // fallback: render plain content with markdown headings
+                          // fallback: render plain content with markdown headings and links
                           return renderMarkdownHeadings(active.content ?? "");
                         }
                       })()
@@ -1126,35 +1260,161 @@ export default function LearnPage() {
                         // Always use renderMarkdownHeadings for plain text content
                         const renderMarkdownHeadings = (text: string) => {
                           const lines = text.split("\n");
-                          return (
-                            <>
-                              {lines.map((line, idx) => {
-                                const trimmed = line.trim();
-                                if (trimmed.startsWith("### ")) {
-                                  return (
-                                    <h3 key={idx} className="mt-6 first:mt-0">
-                                      {trimmed.replace(/^###\s+/, "")}
-                                    </h3>
+                          const paragraphs: React.ReactNode[] = [];
+                          let currentParagraph: string[] = [];
+
+                          lines.forEach((line, idx) => {
+                            const trimmed = line.trim();
+
+                            // Handle headings
+                            if (trimmed.startsWith("### ")) {
+                              if (currentParagraph.length > 0) {
+                                paragraphs.push(
+                                  <p key={`p-${paragraphs.length}`} className="mb-4">
+                                    {currentParagraph.map((text, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && <br />}
+                                        {text}
+                                      </React.Fragment>
+                                    ))}
+                                  </p>
+                                );
+                                currentParagraph = [];
+                              }
+                              paragraphs.push(
+                                <h3 key={idx} className="mt-6 first:mt-0">
+                                  {trimmed.replace(/^###\s+/, "")}
+                                </h3>
+                              );
+                            } else if (trimmed.startsWith("## ")) {
+                              if (currentParagraph.length > 0) {
+                                paragraphs.push(
+                                  <p key={`p-${paragraphs.length}`} className="mb-4">
+                                    {currentParagraph.map((text, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && <br />}
+                                        {text}
+                                      </React.Fragment>
+                                    ))}
+                                  </p>
+                                );
+                                currentParagraph = [];
+                              }
+                              paragraphs.push(
+                                <h2 key={idx} className="mt-6 first:mt-0">
+                                  {trimmed.replace(/^##\s+/, "")}
+                                </h2>
+                              );
+                            } else if (trimmed.startsWith("# ")) {
+                              if (currentParagraph.length > 0) {
+                                paragraphs.push(
+                                  <p key={`p-${paragraphs.length}`} className="mb-4">
+                                    {currentParagraph.map((text, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && <br />}
+                                        {text}
+                                      </React.Fragment>
+                                    ))}
+                                  </p>
+                                );
+                                currentParagraph = [];
+                              }
+                              paragraphs.push(
+                                <h1 key={idx} className="mt-6 first:mt-0">
+                                  {trimmed.replace(/^#\s+/, "")}
+                                </h1>
+                              );
+                            } else if (trimmed === "") {
+                              // Empty line - end current paragraph and add spacing
+                              if (currentParagraph.length > 0) {
+                                paragraphs.push(
+                                  <p key={`p-${paragraphs.length}`} className="mb-4">
+                                    {currentParagraph.map((text, i) => (
+                                      <React.Fragment key={i}>
+                                        {i > 0 && <br />}
+                                        {text}
+                                      </React.Fragment>
+                                    ))}
+                                  </p>
+                                );
+                                currentParagraph = [];
+                              }
+                              // Add a spacer div for empty lines to create visual separation
+                              paragraphs.push(<div key={`spacer-${paragraphs.length}`} className="h-4" />);
+                            } else {
+                              // Check for markdown links [text](url) in the line
+                              const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                              let processedLine = line;
+                              const links: { text: string; url: string; index: number }[] = [];
+                              let match;
+
+                              while ((match = linkRegex.exec(line)) !== null) {
+                                links.push({
+                                  text: match[1],
+                                  url: match[2],
+                                  index: match.index
+                                });
+                              }
+
+                              if (links.length > 0) {
+                                // Replace markdown links with React elements
+                                const parts: (string | React.ReactNode)[] = [];
+                                let lastIndex = 0;
+
+                                links.forEach((link, linkIdx) => {
+                                  // Add text before the link
+                                  if (link.index > lastIndex) {
+                                    parts.push(line.slice(lastIndex, link.index));
+                                  }
+
+                                  // Add the link
+                                  parts.push(
+                                    <a
+                                      key={`link-${idx}-${linkIdx}`}
+                                      href={link.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary underline hover:text-primary/80"
+                                    >
+                                      {link.text}
+                                    </a>
                                   );
+
+                                  lastIndex = link.index + match![0].length;
+                                });
+
+                                // Add remaining text after the last link
+                                if (lastIndex < line.length) {
+                                  parts.push(line.slice(lastIndex));
                                 }
-                                if (trimmed.startsWith("## ")) {
-                                  return (
-                                    <h2 key={idx} className="mt-6 first:mt-0">
-                                      {trimmed.replace(/^##\s+/, "")}
-                                    </h2>
-                                  );
-                                }
-                                if (trimmed.startsWith("# ")) {
-                                  return (
-                                    <h1 key={idx} className="mt-6 first:mt-0">
-                                      {trimmed.replace(/^#\s+/, "")}
-                                    </h1>
-                                  );
-                                }
-                                return <p key={idx}>{line}</p>;
-                              })}
-                            </>
-                          );
+
+                                currentParagraph.push(
+                                  <span key={`text-with-links-${idx}`}>
+                                    {parts}
+                                  </span>
+                                );
+                              } else {
+                                // Regular line without links
+                                currentParagraph.push(line);
+                              }
+                            }
+                          });
+
+                          // Handle any remaining content
+                          if (currentParagraph.length > 0) {
+                            paragraphs.push(
+                              <p key={`p-${paragraphs.length}`} className="mb-4">
+                                {currentParagraph.map((text, i) => (
+                                  <React.Fragment key={i}>
+                                    {i > 0 && <br />}
+                                    {text}
+                                  </React.Fragment>
+                                ))}
+                              </p>
+                            );
+                          }
+
+                          return <>{paragraphs}</>;
                         };
                         return renderMarkdownHeadings(
                           typeof active.content === "string"
