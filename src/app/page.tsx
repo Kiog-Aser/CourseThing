@@ -185,18 +185,61 @@ export default async function HomePage() {
       }
     }
   } catch {
-    // Fallback for older database schema without poster and chapters
-    const fallback = await db.course.findMany({
-      orderBy: { createdAt: "desc" },
-      select: { id: true, slug: true, title: true, description: true },
-    });
-    courses = fallback.map((c: (typeof fallback)[number]) => ({
-      ...c,
-      language: "general",
-      poster: null,
-      chapters: [],
-      lessons: [],
-    }));
+    // Fallback path: database may not have the new `audience` column yet.
+    try {
+      courses = await db.course.findMany({
+        orderBy: [{ language: "asc" }, { createdAt: "desc" }],
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          description: true,
+          language: true,
+          poster: true,
+          // omit audience
+          chapters: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              description: true,
+              poster: true,
+              order: true,
+              lessons: {
+                orderBy: { order: "asc" },
+                select: {
+                  id: true,
+                  title: true,
+                  description: true,
+                },
+              },
+            },
+          },
+          lessons: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              title: true,
+              description: true,
+            },
+          },
+        },
+      });
+    } catch {
+      // Last-resort fallback for very old DBs
+      const fallback = await db.course.findMany({
+        orderBy: { createdAt: "desc" },
+        select: { id: true, slug: true, title: true, description: true },
+      });
+      courses = fallback.map((c: (typeof fallback)[number]) => ({
+        ...c,
+        language: "general",
+        poster: null,
+        chapters: [],
+        lessons: [],
+      }));
+    }
   }
 
   return (
