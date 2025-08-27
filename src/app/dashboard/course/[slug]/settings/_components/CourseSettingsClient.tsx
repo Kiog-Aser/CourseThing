@@ -6,6 +6,24 @@ import { api } from "~/trpc/react";
 import { FileUpload } from "~/components/ui";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 
+// Simple configuration for free courses (persisted in localStorage for admin)
+const FREE_COURSES_KEY = 'free-courses-config';
+
+function getFreeCourses(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(FREE_COURSES_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFreeCourses(courses: string[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(FREE_COURSES_KEY, JSON.stringify(courses));
+}
+
 type CourseData = {
   id: string;
   slug: string;
@@ -32,6 +50,14 @@ export function CourseSettingsClient({ initialCourse }: CourseSettingsClientProp
     description: initialCourse.description ?? "",
     poster: initialCourse.poster ?? "",
   });
+
+  // Avoid hydration mismatch: don't read localStorage during SSR render.
+  const [isFree, setIsFree] = React.useState<boolean>(false);
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setIsFree(getFreeCourses().includes(initialCourse.slug));
+    setMounted(true);
+  }, [initialCourse.slug]);
 
   const [hasChanges, setHasChanges] = React.useState(false);
 
@@ -70,6 +96,19 @@ export function CourseSettingsClient({ initialCourse }: CourseSettingsClientProp
   function handleInputChange(field: keyof typeof form, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
+  }
+
+  function handleFreeToggle(checked: boolean) {
+    setIsFree(checked);
+    setHasChanges(true);
+
+    // Update the free courses configuration
+    const freeCourses = getFreeCourses();
+    const updatedCourses = checked
+      ? [...freeCourses.filter(slug => slug !== initialCourse.slug), initialCourse.slug]
+      : freeCourses.filter(slug => slug !== initialCourse.slug);
+
+    saveFreeCourses(updatedCourses);
   }
 
   const isLoading = updateCourse.status === "pending";
@@ -176,6 +215,38 @@ export function CourseSettingsClient({ initialCourse }: CourseSettingsClientProp
             <p className="text-xs text-muted-foreground">
               A brief overview that will appear on the course cards and homepage
             </p>
+          </div>
+
+          {/* Free Course Toggle */}
+          <div className="md:col-span-2 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Free Course</label>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, all users can access this course without login or payment
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                className="toggle toggle-success toggle-lg"
+                checked={isFree}
+                onChange={(e) => handleFreeToggle(e.target.checked)}
+                aria-label="Toggle free course"
+              />
+            </div>
+            {mounted && isFree && (
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-md p-3">
+                <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium">This course is free for all users</span>
+                </div>
+                <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                  Users can access all lessons without login or payment requirements
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

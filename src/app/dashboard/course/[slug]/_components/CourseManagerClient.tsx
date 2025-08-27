@@ -170,6 +170,21 @@ const TipTapEditor = React.lazy(async () => {
       },
     });
 
+    // Keep editor content in sync when the provided JSON changes
+    React.useEffect(() => {
+      if (!editor) return;
+      try {
+        const current = editor.getJSON();
+        const next = props.json;
+        if (JSON.stringify(current) !== JSON.stringify(next)) {
+          editor.commands.setContent(next as any, false);
+        }
+      } catch {
+        // Fallback if comparison fails
+        editor.commands.setContent(props.json as any, false);
+      }
+    }, [props.json, editor]);
+
     // Handle file drop
     const handleDrop = React.useCallback(async (event: React.DragEvent) => {
       event.preventDefault();
@@ -311,7 +326,29 @@ export function CourseManagerClient({
   const chaptersQuery = api.course.listChapters.useQuery(
     { courseId: initialCourse.id },
     {
-      initialData: initialCourse.chapters,
+      // Shape initial data to exactly match the listChapters output type
+      initialData: initialCourse.chapters.map((chapter) => ({
+        id: chapter.id,
+        slug: chapter.slug,
+        title: chapter.title,
+        description: chapter.description ?? null,
+        poster: chapter.poster ?? null,
+        courseId: initialCourse.id,
+        order: chapter.order,
+        createdAt: chapter.createdAt,
+        updatedAt: chapter.updatedAt,
+        lessons: chapter.lessons.map((l) => ({
+          id: l.id,
+          slug: l.slug,
+          title: l.title,
+          description: l.description ?? null,
+          kind: l.kind,
+          status: l.status as any,
+          order: l.order,
+          chapterId: l.chapterId ?? null,
+          createdAt: l.createdAt,
+        })),
+      })),
     },
   );
   // Chapter collapse / expand state
@@ -805,7 +842,7 @@ export function CourseManagerClient({
           </div>
         )}
         <div className="mb-4 flex items-center justify-between gap-2">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <input
               value={courseTitle}
               onChange={(e) => {
@@ -907,7 +944,7 @@ export function CourseManagerClient({
                 className="group border-muted-foreground/30 text-muted-foreground hover:border-primary/50 flex cursor-pointer items-start gap-2 rounded-md border border-dashed px-3 py-2 text-sm font-medium transition-colors"
               >
                 <Folder size={14} />
-                <span className="flex-1">{chapter.title}</span>
+                <span className="flex-1 min-w-0 truncate" title={chapter.title}>{chapter.title}</span>
                 <span className="text-[10px] tracking-wide uppercase">
                   {expandedChapters.has(chapter.id) ? "Hide" : "Show"}
                 </span>
@@ -955,20 +992,22 @@ export function CourseManagerClient({
                           : "hover:border-accent hover:bg-accent border-transparent")
                       }
                     >
-                      <div className="flex flex-1 items-start gap-2">
+                      <div className="flex flex-1 items-start gap-2 min-w-0">
                         <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
                           ⋮⋮
                         </span>
                         <span
                           className={
-                            "flex-1 truncate text-xs " +
+                            "flex-1 min-w-0 text-xs " +
                             (isActive ? "text-primary font-medium" : "")
                           }
                         >
-                          {idx + 1}. {lesson.title || "Untitled"}
+                          <span className="block truncate" title={lesson.title || "Untitled"}>
+                            {idx + 1}. {lesson.title || "Untitled"}
+                          </span>
                           {lesson.description && (
                             <div
-                              className="text-muted-foreground mt-0.5 text-[11px] leading-tight"
+                              className="text-muted-foreground mt-0.5 text-[11px] leading-tight line-clamp-1"
                               title={lesson.description}
                             >
                               {truncateWords(lesson.description, 5)}
@@ -1067,26 +1106,28 @@ export function CourseManagerClient({
                         : "hover:border-accent hover:bg-accent border-transparent")
                     }
                   >
-                    <div className="flex flex-1 items-start gap-2">
+                    <div className="flex flex-1 items-start gap-2 min-w-0">
                       <span className="text-muted-foreground mt-0.5 cursor-grab text-xs font-semibold select-none">
                         ⋮⋮
                       </span>
-                                              <span
-                          className={
-                            "flex-1 text-xs " +
-                            (isActive ? "text-primary font-medium" : "")
-                          }
-                        >
+                      <span
+                        className={
+                          "flex-1 min-w-0 text-xs " +
+                          (isActive ? "text-primary font-medium" : "")
+                        }
+                      >
+                        <span className="block truncate" title={lesson.title || "Untitled"}>
                           {idx + 1}. {lesson.title || "Untitled"}
-                          {lesson.description && (
-                            <div
-                              className="text-muted-foreground mt-0.5 text-[11px] leading-tight"
-                              title={lesson.description}
-                            >
-                              {truncateWords(lesson.description, 5)}
-                            </div>
-                          )}
                         </span>
+                        {lesson.description && (
+                          <div
+                            className="text-muted-foreground mt-0.5 text-[11px] leading-tight line-clamp-1"
+                            title={lesson.description}
+                          >
+                            {truncateWords(lesson.description, 5)}
+                          </div>
+                        )}
+                      </span>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1238,6 +1279,7 @@ export function CourseManagerClient({
                   }
                 >
                   <TipTapEditor
+                    key={activeLesson?.id ?? "no-lesson"}
                     json={editorJson ?? { type: "doc", content: [] }}
                     editable
                     onUpdate={(json) => {

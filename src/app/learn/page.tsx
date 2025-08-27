@@ -352,6 +352,18 @@ export default function LearnPage() {
   );
   const courseSlug = search.get("course")?.trim() || "";
   const chapterSlug = search.get("chapter")?.trim();
+  const lessonId = search.get("lesson")?.trim();
+
+  // Free courses list (client-only) to avoid hook order/hydration issues
+  const [freeCourses, setFreeCourses] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('free-courses-config');
+      setFreeCourses(stored ? JSON.parse(stored) : []);
+    } catch {
+      setFreeCourses([]);
+    }
+  }, []);
 
   const toggleChapterExpansion = (chapterId: string) => {
     const newExpanded = new Set(expandedChapters);
@@ -376,22 +388,30 @@ export default function LearnPage() {
 
   const lessons: LessonRecord[] = useMemo(() => {
     if (!course) return [];
-    // Combine lessons from chapters and standalone lessons
-    const allLessons = [
-      ...course.lessons,
-      ...course.chapters.flatMap((chapter) => chapter.lessons),
-    ];
-    return allLessons
-      .filter((l: LessonRecord) => l.status === "PUBLISHED")
-      .sort((a: LessonRecord, b: LessonRecord) => a.order - b.order);
+    // Order to match sidebar: chapters by chapter.order then lesson.order, then standalone by order
+    const chapterLessonsOrdered = [...course.chapters]
+      .sort((a, b) => a.order - b.order)
+      .flatMap((chapter) =>
+        [...chapter.lessons]
+          .filter((l) => l.status === "PUBLISHED")
+          .sort((a, b) => a.order - b.order),
+      );
+
+    const standaloneLessonsOrdered = [...course.lessons]
+      .filter((l) => l.status === "PUBLISHED")
+      .sort((a, b) => a.order - b.order);
+
+    return [...chapterLessonsOrdered, ...standaloneLessonsOrdered];
   }, [course]);
+
+  const firstLessonId = lessons[0]?.id ?? null;
 
   // --- Progress & Completion State (HOOKS) ---
   const courseId = course?.id ?? "";
   const { data: completedLessonIds = [], refetch: refetchCompletions } =
     api.course.getLessonCompletions.useQuery(
       { courseId },
-      { enabled: !!courseId },
+      { enabled: !!courseId && isAuthed },
     );
 
   const markCompleted = api.course.markLessonCompleted.useMutation({
@@ -449,14 +469,35 @@ export default function LearnPage() {
     }
   }, [totalLessons, completedCount]);
 
-  // --- Auto-select first incomplete lesson ---
+  // --- Auto-select lesson based on URL parameters or progress ---
   React.useEffect(() => {
     if (lessons.length === 0) {
       setActiveId(null);
       return;
     }
 
-    // Handle chapter URL parameter
+    // Priority 1: If lessonId is specified in URL, use it
+    if (lessonId && lessons.find((l) => l.id === lessonId)) {
+      // Expand the chapter if the lesson belongs to one
+      const lesson = lessons.find((l) => l.id === lessonId);
+      if (lesson && course) {
+        // Find which chapter this lesson belongs to
+        const chapterWithLesson = course.chapters.find((chapter) =>
+          chapter.lessons.some((l) => l.id === lessonId)
+        );
+        if (chapterWithLesson) {
+          setExpandedChapters((prev) => {
+            const newSet = new Set(prev);
+            newSet.add(chapterWithLesson.id);
+            return newSet;
+          });
+        }
+      }
+      setActiveId(lessonId);
+      return;
+    }
+
+    // Priority 2: Handle chapter URL parameter
     if (chapterSlug && course) {
       const targetChapter = course.chapters.find((c) => c.slug === chapterSlug);
       if (targetChapter && targetChapter.lessons.length > 0) {
@@ -469,25 +510,29 @@ export default function LearnPage() {
           }
           return prev; // Don't update if already expanded
         });
-        // Select first lesson in chapter if not already selected
+        // Select next incomplete lesson in chapter if not already selected
         if (
           !activeId ||
           !targetChapter.lessons.find((l) => l.id === activeId)
         ) {
-          setActiveId(targetChapter.lessons[0]!.id);
+          // Find the next incomplete lesson in this chapter
+          const nextIncompleteLesson = targetChapter.lessons.find(
+            (lesson) => !optimisticIds.includes(lesson.id)
+          );
+          setActiveId(nextIncompleteLesson ? nextIncompleteLesson.id : targetChapter.lessons[0]!.id);
         }
         return;
       }
     }
 
-    // Find first incomplete lesson, else fallback to first lesson
+    // Priority 3: Find first incomplete lesson, else fallback to first lesson
     const firstIncomplete = lessons.find(
       (l) => !completedLessonIds.includes(l.id),
     );
     if (!activeId || !lessons.find((l) => l.id === activeId)) {
       setActiveId(firstIncomplete ? firstIncomplete.id : lessons[0]!.id);
     }
-  }, [lessons.length, activeId, completedLessonIds.length, chapterSlug, course?.id]);
+  }, [lessons.length, activeId, optimisticIds.join(','), chapterSlug, lessonId, course?.id]);
 
   const active = lessons.find((l) => l.id === activeId) || null;
 
@@ -572,8 +617,9 @@ export default function LearnPage() {
     );
   }
 
-  return (
-    <CreativeFunSubscriptionGuard>
+  const isFreeCourse = freeCourses.includes(courseSlug);
+
+  const content = (<>
       {/* Congrats Modal */}
       {showCongrats && (
         <div
@@ -676,14 +722,16 @@ export default function LearnPage() {
                       const isActive = lesson.id === activeId;
                       const isVideo =
                         lesson.kind === "VIDEO" || !!lesson.youtubeId;
-                      // First lesson is free, others require authentication and customer verification
-                      const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
+                      // Check if this course is completely free
+                      const free = isFreeCourse;
+                      // First lesson follows sidebar ordering
+                      const isFirstLesson = !!firstLessonId && lesson.id === firstLessonId;
                       const isCustomer = session?.user?.creativeFunSubscription === true;
-                      const locked = !isFirstLesson && (!isAuthed || !isCustomer);
+                      const locked = !free && !isFirstLesson && (!isAuthed || !isCustomer);
 
                       // Determine lock reason for better UX
-                      const lockReason = !isFirstLesson && !isAuthed ? 'auth' :
-                                       !isFirstLesson && isAuthed && !isCustomer ? 'subscription' : null;
+                      const lockReason = !free && !isFirstLesson && !isAuthed ? 'auth' :
+                                       !free && !isFirstLesson && isAuthed && !isCustomer ? 'subscription' : null;
                       const isCompleted = optimisticIds.includes(lesson.id);
 
                       return (
@@ -697,6 +745,10 @@ export default function LearnPage() {
                             }
                             setLockedAttempt(null);
                             setActiveId(lesson.id);
+                            // Update URL to include lesson parameter for refresh persistence
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('lesson', lesson.id);
+                            window.history.replaceState({}, '', url.toString());
                           }}
                           className={
                             "group mx-3.5 flex w-60 items-center rounded-md border px-2.5 py-2 text-sm transition " +
@@ -827,14 +879,16 @@ export default function LearnPage() {
             {course?.lessons?.map((lesson, idx) => {
               const isActive = lesson.id === activeId;
               const isVideo = lesson.kind === "VIDEO" || !!lesson.youtubeId;
-              // First lesson is free, others require authentication and customer verification
-              const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
+              // Check if this course is completely free
+              const free = isFreeCourse;
+              // First lesson follows sidebar ordering
+              const isFirstLesson = !!firstLessonId && lesson.id === firstLessonId;
               const isCustomer = session?.user?.creativeFunSubscription === true;
-              const locked = !isFirstLesson && (!isAuthed || !isCustomer);
+              const locked = !free && !isFirstLesson && (!isAuthed || !isCustomer);
 
               // Determine lock reason for better UX
-              const lockReason = !isFirstLesson && !isAuthed ? 'auth' :
-                               !isFirstLesson && isAuthed && !isCustomer ? 'subscription' : null;
+              const lockReason = !free && !isFirstLesson && !isAuthed ? 'auth' :
+                               !free && !isFirstLesson && isAuthed && !isCustomer ? 'subscription' : null;
               const isCompleted = optimisticIds.includes(lesson.id);
 
               return (
@@ -848,6 +902,10 @@ export default function LearnPage() {
                     }
                     setLockedAttempt(null);
                     setActiveId(lesson.id);
+                    // Update URL to include lesson parameter for refresh persistence
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('lesson', lesson.id);
+                    window.history.replaceState({}, '', url.toString());
                   }}
                   className={
                     "group flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left text-[15px] transition " +
@@ -967,31 +1025,15 @@ export default function LearnPage() {
             {lockedAttempt ? (
               (() => {
                 const lesson = lockedAttempt;
-                const isFirstLesson = lessons.length > 0 && lesson.id === lessons[0].id;
+                const free = isFreeCourse;
+                const isFirstLesson = !!firstLessonId && lesson.id === firstLessonId;
                 const isCustomer = session?.user?.creativeFunSubscription === true;
-                const needsAuth = !isAuthed;
-                const needsSubscription = isAuthed && !isCustomer;
+                const needsAuth = !free && !isAuthed;
+                const needsSubscription = !free && isAuthed && !isCustomer;
 
                 return (
-                  <div className="space-y-6">
-                    {/* Lesson header */}
-                    <div className="flex flex-col gap-2">
-                      <h1 className="text-2xl leading-tight font-bold tracking-tight md:text-3xl">
-                        {lesson.title}
-                      </h1>
-                      {lesson.description && (
-                        <div className="text-muted-foreground text-sm leading-snug">
-                          {lesson.description}
-                        </div>
-                      )}
-                      <div className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                        Lesson {lessons.findIndex((l) => l.id === lesson.id) + 1} of{" "}
-                        {lessons.length}
-                      </div>
-                    </div>
-
-                    {/* Lock message */}
-                    <div className="mx-auto flex min-h-[30vh] max-w-md flex-col items-center justify-center gap-5 text-center border border-dashed rounded-lg p-8">
+                  <div className="flex min-h-[70vh] w-full items-center justify-center">
+                    <div className="mx-auto flex max-w-md flex-col items-center justify-center gap-5 text-center border border-dashed rounded-lg p-8">
                       <Lock className="text-muted-foreground h-12 w-12" />
                       <div className="space-y-3">
                         <h2 className="text-xl font-semibold tracking-tight">
@@ -1451,7 +1493,15 @@ export default function LearnPage() {
                       {/* Previous Lesson Button */}
                       <button
                         className="bg-muted text-muted-foreground hover:bg-accent rounded-md px-4 py-2 font-semibold shadow transition disabled:opacity-50"
-                        onClick={() => prevLesson && setActiveId(prevLesson.id)}
+                        onClick={() => {
+                          if (prevLesson) {
+                            setActiveId(prevLesson.id);
+                            // Update URL to include lesson parameter for refresh persistence
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('lesson', prevLesson.id);
+                            window.history.replaceState({}, '', url.toString());
+                          }
+                        }}
                         disabled={!prevLesson}
                       >
                         Previous Lesson
@@ -1469,11 +1519,15 @@ export default function LearnPage() {
                           }
                           if (nextLesson) {
                             setActiveId(nextLesson.id);
+                            // Update URL to include lesson parameter for refresh persistence
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('lesson', nextLesson.id);
+                            window.history.replaceState({}, '', url.toString());
                           }
                         }}
-                        disabled={!nextLesson && isCompleted}
+                        disabled={false}
                       >
-                        {nextLesson ? "Next" : "Done"}
+                        {nextLesson ? "Next" : "Next"}
                       </button>
                     </div>
                   );
@@ -1488,6 +1542,7 @@ export default function LearnPage() {
           </div>
         </main>
       </div>
-    </CreativeFunSubscriptionGuard>
-  );
+  </>);
+
+  return content;
 }

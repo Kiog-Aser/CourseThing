@@ -39,6 +39,7 @@ export interface CoursePosterCardProps {
   chapterCount?: number;
   lessonCount?: number;
   ctaLabel?: string | null;
+  isFree?: boolean;
 }
 
 const LANGUAGE_FLAGS: Record<string, string> = {
@@ -108,6 +109,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
     onClick,
     chapterCount,
     lessonCount,
+    isFree,
   } = props;
 
   const flag = languageFlag(language);
@@ -137,7 +139,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
   const cardContent = (
     <div
               className={cn(
-          "group focus-visible:ring-primary relative block w-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+          "group focus-visible:ring-primary relative block w-full sm:w-[200px] shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
           "cursor-pointer",
           className,
         )}
@@ -163,7 +165,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
             src={coverImageUrl}
             alt={title}
             fill
-            sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
+            sizes="200px"
             priority={false}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
@@ -173,6 +175,15 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
               (e.target as HTMLImageElement).style.display = 'none';
             }}
           />
+        )}
+
+        {/* Free badge */}
+        {isFree && (
+          <div className="absolute top-4 right-4">
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-green-500/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
+              Free
+            </span>
+          </div>
         )}
 
         {/* Hover button for course posters */}

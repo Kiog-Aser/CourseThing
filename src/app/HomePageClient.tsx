@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { BookOpen, ArrowRight } from "lucide-react";
 import { CoursePosterCard } from "~/components/CoursePosterCard";
@@ -33,20 +34,51 @@ type CourseWithChapters = {
   }>;
 };
 
+// Get free courses from localStorage (admin configuration)
+function getFreeCourses(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem('free-courses-config');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
 interface HomePageClientProps {
   initialCourses: CourseWithChapters[];
   isAdmin: boolean;
   isAuthed: boolean;
+  continueCourseSlug?: string | null;
 }
 
 export default function HomePageClient({
   initialCourses,
   isAdmin,
   isAuthed,
+  continueCourseSlug,
 }: HomePageClientProps) {
   const [courses] = useState<CourseWithChapters[]>(initialCourses);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [freeCourses, setFreeCourses] = useState<string[]>([]);
+  const [mounted, setMounted] = React.useState(false);
   const selectedCourse = courses.find((c) => c.id === selectedCourseId) || null;
+
+  // Listen for localStorage changes to update free courses
+  React.useEffect(() => {
+    // initial read on client only
+    setFreeCourses(getFreeCourses());
+    const handleStorageChange = () => {
+      setFreeCourses(getFreeCourses());
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">
@@ -78,7 +110,7 @@ export default function HomePageClient({
             {isAuthed ? (
               courses.length > 0 ? (
                 <Link
-                  href={`/learn?course=${courses[0].slug}`}
+                  href={continueCourseSlug ? `/learn?course=${continueCourseSlug}` : `/learn?course=${courses[0].slug}`}
                   className="hover:bg-accent inline-flex items-center gap-2 rounded-md border px-5 py-3 text-sm font-medium"
                 >
                   Continue Learning
@@ -160,7 +192,7 @@ export default function HomePageClient({
             <div className="mb-4">
               <h2 className="text-xl font-semibold tracking-tight">Courses</h2>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
               {courses.map((course) => (
                 <div key={course.id} className="space-y-2">
                   <CoursePosterCard
@@ -172,6 +204,7 @@ export default function HomePageClient({
                     tagline={course.description}
                     accentColor="#6366f1"
                     ctaLabel="View chapters"
+                    isFree={freeCourses.includes(course.slug)}
                     onClick={() => setSelectedCourseId(course.id)}
                   />
                   <div className="px-0.5">
@@ -205,7 +238,7 @@ export default function HomePageClient({
             {selectedCourse.chapters.length === 0 ? (
               <div className="text-muted-foreground text-sm">This course has no chapters. Start now.</div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                 {selectedCourse.chapters.map((chapter) => (
                   <div key={chapter.id} className="space-y-2">
                     <ChapterPosterCard

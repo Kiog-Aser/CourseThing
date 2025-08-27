@@ -99,6 +99,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       loadingText = "Loading...",
       children,
       type = "button",
+      // Remove unsupported prop from reaching the DOM
+      asChild, // eslint-disable-line @typescript-eslint/no-unused-vars
       ...props
     },
     ref,
@@ -384,6 +386,58 @@ export const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
   ),
 );
 Alert.displayName = "Alert";
+
+/* -------------------------------------------------------------------------------------------------
+ * Switch (headless, no external deps)
+ * -----------------------------------------------------------------------------------------------*/
+export interface SwitchProps
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onChange"> {
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  size?: "sm" | "md";
+}
+
+export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
+  ({ checked = false, onCheckedChange, disabled, className, size = "md", ...props }, ref) => {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-disabled={disabled || undefined}
+        data-state={checked ? "checked" : "unchecked"}
+        className={cn(
+          "relative inline-flex shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 ring-offset-background",
+          size === "sm" ? "h-6 w-10" : "h-7 w-12",
+          checked ? "bg-green-500" : "bg-gray-200 dark:bg-gray-700",
+          disabled && "opacity-50 cursor-not-allowed",
+          className,
+        )}
+        onClick={(e) => {
+          if (disabled) return;
+          onCheckedChange?.(!checked);
+          props.onClick?.(e);
+        }}
+        {...props}
+      >
+        <span
+          className={cn(
+            "pointer-events-none inline-block rounded-full bg-white shadow transition-transform",
+            size === "sm" ? "h-4 w-4" : "h-5 w-5",
+            checked
+              ? size === "sm"
+                ? "translate-x-5"
+                : "translate-x-6"
+              : "translate-x-0",
+          )}
+          aria-hidden="true"
+        />
+      </button>
+    );
+  },
+);
+Switch.displayName = "Switch";
 
 /* -------------------------------------------------------------------------------------------------
  * File Upload
