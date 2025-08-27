@@ -14,6 +14,7 @@ type CourseWithChapters = {
   description: string | null;
   language: string;
   poster: string | null;
+  audience?: "FREE" | "CREATIVE_FUN" | "CREATIVE_FUN_PREMIUM" | null;
   chapters: Array<{
     id: string;
     slug: string;
@@ -49,6 +50,7 @@ interface HomePageClientProps {
   initialCourses: CourseWithChapters[];
   isAdmin: boolean;
   isAuthed: boolean;
+  isCreatiFunCustomer?: boolean;
   continueCourseSlug?: string | null;
 }
 
@@ -56,6 +58,7 @@ export default function HomePageClient({
   initialCourses,
   isAdmin,
   isAuthed,
+  isCreatiFunCustomer = false,
   continueCourseSlug,
 }: HomePageClientProps) {
   const [courses] = useState<CourseWithChapters[]>(initialCourses);
@@ -110,7 +113,7 @@ export default function HomePageClient({
             {isAuthed ? (
               courses.length > 0 ? (
                 <Link
-                  href={continueCourseSlug ? `/learn?course=${continueCourseSlug}` : `/learn?course=${courses[0].slug}`}
+                  href={continueCourseSlug ? `/learn?course=${continueCourseSlug}` : `/learn?course=${courses[0]?.slug ?? ""}`}
                   className="hover:bg-accent inline-flex items-center gap-2 rounded-md border px-5 py-3 text-sm font-medium"
                 >
                   Continue Learning
@@ -192,7 +195,7 @@ export default function HomePageClient({
             <div className="mb-4">
               <h2 className="text-xl font-semibold tracking-tight">Courses</h2>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-6">
               {courses.map((course) => (
                 <div key={course.id} className="space-y-2">
                   <CoursePosterCard
@@ -204,7 +207,7 @@ export default function HomePageClient({
                     tagline={course.description}
                     accentColor="#6366f1"
                     ctaLabel="View chapters"
-                    isFree={freeCourses.includes(course.slug)}
+                    isFree={(!isCreatiFunCustomer) && (course.audience === 'FREE' || freeCourses.includes(course.slug))}
                     onClick={() => setSelectedCourseId(course.id)}
                   />
                   <div className="px-0.5">
@@ -238,7 +241,7 @@ export default function HomePageClient({
             {selectedCourse.chapters.length === 0 ? (
               <div className="text-muted-foreground text-sm">This course has no chapters. Start now.</div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-6">
                 {selectedCourse.chapters.map((chapter) => (
                   <div key={chapter.id} className="space-y-2">
                     <ChapterPosterCard

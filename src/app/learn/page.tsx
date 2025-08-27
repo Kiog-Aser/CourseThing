@@ -355,14 +355,28 @@ export default function LearnPage() {
   const lessonId = search.get("lesson")?.trim();
 
   // Free courses list (client-only) to avoid hook order/hydration issues
-  const [freeCourses, setFreeCourses] = useState<string[]>([]);
-  useEffect(() => {
+  // Initialize from localStorage immediately to avoid a first-render lock on free courses
+  const [freeCourses, setFreeCourses] = useState<string[]>(() => {
     try {
+      if (typeof window === 'undefined') return [];
       const stored = localStorage.getItem('free-courses-config');
-      setFreeCourses(stored ? JSON.parse(stored) : []);
+      return stored ? JSON.parse(stored) : [];
     } catch {
-      setFreeCourses([]);
+      return [];
     }
+  });
+  useEffect(() => {
+    // Keep in sync if storage changes (e.g., admin toggled elsewhere)
+    const handle = () => {
+      try {
+        const stored = localStorage.getItem('free-courses-config');
+        setFreeCourses(stored ? JSON.parse(stored) : []);
+      } catch {
+        setFreeCourses([]);
+      }
+    };
+    window.addEventListener('storage', handle);
+    return () => window.removeEventListener('storage', handle);
   }, []);
 
   const toggleChapterExpansion = (chapterId: string) => {
@@ -727,7 +741,7 @@ export default function LearnPage() {
                       // First lesson follows sidebar ordering
                       const isFirstLesson = !!firstLessonId && lesson.id === firstLessonId;
                       const isCustomer = session?.user?.creativeFunSubscription === true;
-                      const locked = !free && !isFirstLesson && (!isAuthed || !isCustomer);
+                      const locked = free ? false : (!isFirstLesson && (!isAuthed || !isCustomer));
 
                       // Determine lock reason for better UX
                       const lockReason = !free && !isFirstLesson && !isAuthed ? 'auth' :
@@ -884,7 +898,7 @@ export default function LearnPage() {
               // First lesson follows sidebar ordering
               const isFirstLesson = !!firstLessonId && lesson.id === firstLessonId;
               const isCustomer = session?.user?.creativeFunSubscription === true;
-              const locked = !free && !isFirstLesson && (!isAuthed || !isCustomer);
+              const locked = free ? false : (!isFirstLesson && (!isAuthed || !isCustomer));
 
               // Determine lock reason for better UX
               const lockReason = !free && !isFirstLesson && !isAuthed ? 'auth' :

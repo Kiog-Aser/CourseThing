@@ -67,7 +67,7 @@ export function ChapterPosterCard(props: ChapterPosterCardProps) {
   const cardContent = (
     <div
       className={cn(
-        "group focus-visible:ring-primary relative block w-[200px] shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+        "group focus-visible:ring-primary relative block w-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
         "cursor-pointer",
         className,
       )}
@@ -75,7 +75,7 @@ export function ChapterPosterCard(props: ChapterPosterCardProps) {
     >
       <div
         className={cn(
-          "relative aspect-[3/4] overflow-hidden rounded-lg",
+          "relative aspect-[3/4] overflow-hidden rounded-lg mx-auto w-[170px] sm:w-[200px]",
           "bg-neutral-900 text-white",
           "shadow-lg shadow-black/20",
           "ring-1 ring-white/10",
@@ -94,15 +94,10 @@ export function ChapterPosterCard(props: ChapterPosterCardProps) {
             src={coverImageUrl}
             alt={title}
             fill
-            sizes="200px"
+            sizes="(max-width: 640px) 170px, 200px"
+            unoptimized
             priority={false}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={(e) => {
-              // Log the error for debugging
-              console.log('Image failed to load:', coverImageUrl, e);
-              // Hide the image on error to show the fallback gradient
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
           />
         )}
 

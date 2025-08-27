@@ -70,6 +70,7 @@ model Course {
   language    String    @default("general")
   description String?
   poster      String?   // URL to course poster image
+  audience    CourseAudience?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   authorId    String
@@ -157,4 +158,10 @@ enum LessonStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+enum CourseAudience {
+  FREE
+  CREATIVE_FUN
+  CREATIVE_FUN_PREMIUM
 }

@@ -39,6 +39,7 @@ export default async function HomePage() {
   const session = await auth();
   const isAdmin = isAdminEmail(session?.user?.email);
   const isAuthed = !!session?.user;
+  const isCreatiFunCustomer = session?.user?.creativeFunSubscription === true;
 
   let courses: CourseWithChapters[] = [];
   let continueCourseSlug: string | null = null;
@@ -53,6 +54,7 @@ export default async function HomePage() {
         description: true,
         language: true,
         poster: true,
+        audience: true,
         chapters: {
           orderBy: { order: "asc" },
           select: {
@@ -202,6 +204,7 @@ export default async function HomePage() {
       initialCourses={courses}
       isAdmin={isAdmin}
       isAuthed={isAuthed}
+      isCreatiFunCustomer={isCreatiFunCustomer}
       continueCourseSlug={continueCourseSlug}
     />
   );
