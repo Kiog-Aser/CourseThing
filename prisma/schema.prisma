@@ -162,6 +162,6 @@ enum LessonStatus {
 
 enum CourseAudience {
   FREE
-  CREATIVE_FUN
-  CREATIVE_FUN_PREMIUM
 }
+
+

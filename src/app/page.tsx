@@ -13,6 +13,7 @@ type CourseWithChapters = {
   description: string | null;
   language: string;
   poster: string | null;
+  audience: "FREE" | null;
   chapters: Array<{
     id: string;
     slug: string;
@@ -47,15 +48,15 @@ export default async function HomePage() {
   try {
     courses = await db.course.findMany({
       orderBy: [{ language: "asc" }, { createdAt: "desc" }],
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        description: true,
-        language: true,
-        poster: true,
-        audience: true,
-        chapters: {
+              select: {
+          id: true,
+          slug: true,
+          title: true,
+          description: true,
+          language: true,
+          poster: true,
+          audience: true,
+          chapters: {
           orderBy: { order: "asc" },
           select: {
             id: true,
@@ -196,7 +197,7 @@ export default async function HomePage() {
           description: true,
           language: true,
           poster: true,
-          // omit audience
+          audience: true,
           chapters: {
             orderBy: { order: "asc" },
             select: {

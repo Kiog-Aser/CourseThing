@@ -28,6 +28,7 @@ export default async function CourseSettingsPage({
       language: true,
       description: true,
       poster: true,
+      audience: true,
       createdAt: true,
       updatedAt: true,
       authorId: true,

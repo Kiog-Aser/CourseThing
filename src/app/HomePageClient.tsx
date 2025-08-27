@@ -14,7 +14,7 @@ type CourseWithChapters = {
   description: string | null;
   language: string;
   poster: string | null;
-  audience?: "FREE" | "CREATIVE_FUN" | "CREATIVE_FUN_PREMIUM" | null;
+  audience: "FREE" | null;
   chapters: Array<{
     id: string;
     slug: string;
@@ -35,17 +35,6 @@ type CourseWithChapters = {
   }>;
 };
 
-// Get free courses from localStorage (admin configuration)
-function getFreeCourses(): string[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem('free-courses-config');
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
 interface HomePageClientProps {
   initialCourses: CourseWithChapters[];
   isAdmin: boolean;
@@ -63,25 +52,7 @@ export default function HomePageClient({
 }: HomePageClientProps) {
   const [courses] = useState<CourseWithChapters[]>(initialCourses);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [freeCourses, setFreeCourses] = useState<string[]>([]);
-  const [mounted, setMounted] = React.useState(false);
   const selectedCourse = courses.find((c) => c.id === selectedCourseId) || null;
-
-  // Listen for localStorage changes to update free courses
-  React.useEffect(() => {
-    // initial read on client only
-    setFreeCourses(getFreeCourses());
-    const handleStorageChange = () => {
-      setFreeCourses(getFreeCourses());
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">
@@ -207,7 +178,6 @@ export default function HomePageClient({
                     tagline={course.description}
                     accentColor="#6366f1"
                     ctaLabel="View chapters"
-                    isFree={(!isCreatiFunCustomer) && (course.audience === 'FREE' || freeCourses.includes(course.slug))}
                     onClick={() => setSelectedCourseId(course.id)}
                   />
                   <div className="px-0.5">

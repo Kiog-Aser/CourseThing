@@ -17,6 +17,7 @@ const courseBase = z.object({
     .min(2),
   language: z.string().min(2),
   poster: z.string().optional(),
+  audience: z.enum(["FREE"]).optional().nullable(),
 });
 
 const chapterBase = z.object({
@@ -195,31 +196,129 @@ export const courseRouter = createTRPCRouter({
         });
       } catch (error) {
         console.error("Database error in bySlug:", error);
-        // Fallback: try without description field and chapters
-        return await ctx.db.course.findUnique({
-          where: { slug: input.slug },
-          include: {
-            lessons: {
-              orderBy: { order: "asc" },
-              where: { chapterId: null },
+        // Check if it's an audience column error
+        const msg = (error as Error)?.message || "";
+        const missingAudience = /Course\.audience|`audience` does not exist|Unknown column 'audience'/i.test(msg);
+
+        if (missingAudience) {
+          // Fallback: try without audience column
+          try {
+            return await ctx.db.course.findUnique({
+              where: { slug: input.slug },
               select: {
                 id: true,
                 slug: true,
                 title: true,
-                kind: true,
-                status: true,
-                content: true,
-                contentJson: true,
-                youtubeId: true,
-                order: true,
-                authorId: true,
-                chapterId: true,
+                description: true,
+                language: true,
+                poster: true,
                 createdAt: true,
                 updatedAt: true,
+                authorId: true,
+                // omit audience
+              },
+              include: {
+                chapters: {
+                  orderBy: { order: "asc" },
+                  include: {
+                    lessons: {
+                      orderBy: { order: "asc" },
+                      select: {
+                        id: true,
+                        slug: true,
+                        title: true,
+                        description: true,
+                        kind: true,
+                        status: true,
+                        content: true,
+                        contentJson: true,
+                        youtubeId: true,
+                        order: true,
+                        authorId: true,
+                        chapterId: true,
+                        createdAt: true,
+                        updatedAt: true,
+                      },
+                    },
+                  },
+                },
+                lessons: {
+                  orderBy: { order: "asc" },
+                  where: { chapterId: null },
+                  select: {
+                    id: true,
+                    slug: true,
+                    title: true,
+                    description: true,
+                    kind: true,
+                    status: true,
+                    content: true,
+                    contentJson: true,
+                    youtubeId: true,
+                    order: true,
+                    authorId: true,
+                    chapterId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                  },
+                },
+              },
+            });
+          } catch (fallbackError) {
+            console.error("Fallback database error in bySlug:", fallbackError);
+            // Final fallback: try without description field and chapters
+            return await ctx.db.course.findUnique({
+              where: { slug: input.slug },
+              include: {
+                lessons: {
+                  orderBy: { order: "asc" },
+                  where: { chapterId: null },
+                  select: {
+                    id: true,
+                    slug: true,
+                    title: true,
+                    kind: true,
+                    status: true,
+                    content: true,
+                    contentJson: true,
+                    youtubeId: true,
+                    order: true,
+                    authorId: true,
+                    chapterId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                  },
+                },
+              },
+            });
+          }
+        } else {
+          // Original fallback for other errors
+          return await ctx.db.course.findUnique({
+            where: { slug: input.slug },
+            include: {
+              lessons: {
+                orderBy: { order: "asc" },
+                where: { chapterId: null },
+                select: {
+                  id: true,
+                  slug: true,
+                  title: true,
+                  kind: true,
+                  status: true,
+                  content: true,
+                  contentJson: true,
+                  youtubeId: true,
+                  order: true,
+                  authorId: true,
+                  chapterId: true,
+                  createdAt: true,
+                  updatedAt: true,
+                },
               },
             },
-          },
-        });
+          });
+        }
       }
     }),
   create: protectedProcedure
@@ -228,7 +327,15 @@ export const courseRouter = createTRPCRouter({
       ensureAdmin(ctx.session.user?.email);
       try {
         return await ctx.db.course.create({
-          data: { ...input, authorId: ctx.session.user.id },
+          data: {
+            title: input.title,
+            description: input.description,
+            slug: input.slug,
+            language: input.language,
+            poster: input.poster,
+            audience: input.audience,
+            authorId: ctx.session.user.id
+          },
         });
       } catch (err) {
         const msg = (err as Error)?.message || "";
@@ -248,6 +355,7 @@ export const courseRouter = createTRPCRouter({
               description: input.description,
               slug: input.slug,
               poster: input.poster,
+              audience: input.audience,
               authorId: ctx.session.user.id,
             },
           });
@@ -269,6 +377,7 @@ export const courseRouter = createTRPCRouter({
             slug: input.slug,
             language: input.language,
             poster: input.poster,
+            audience: input.audience,
           },
         });
       } catch (err) {
@@ -286,6 +395,7 @@ export const courseRouter = createTRPCRouter({
               description: input.description,
               slug: input.slug,
               poster: input.poster,
+              audience: input.audience,
               // omit language
             } as Record<string, unknown>,
           });
