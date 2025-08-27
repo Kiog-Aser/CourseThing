@@ -1035,7 +1035,7 @@ export default function LearnPage() {
                           </h2>
                           <p className="text-muted-foreground text-sm leading-relaxed">
                             {needsAuth
-                              ? "You need to be signed in to access this course."
+                              ? "You need to be signed in to access the entire course."
                               : "This premium content is exclusively available to CreatiFun subscribers. Subscribe to unlock access to all premium courses and exclusive content."
                             }
                           </p>
