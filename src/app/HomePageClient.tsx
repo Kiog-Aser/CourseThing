@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import { BookOpen, ArrowRight } from "lucide-react";
 import { CoursePosterCard } from "~/components/CoursePosterCard";
 import { ChapterPosterCard } from "~/components/ChapterPosterCard";
 import { useState } from "react";
@@ -33,18 +33,6 @@ type CourseWithChapters = {
   }>;
 };
 
-function groupByLanguage(courses: CourseWithChapters[]) {
-  const map = new Map<string, CourseWithChapters[]>();
-  for (const c of courses) {
-    const lang = c.language?.trim() || "unknown";
-    if (!map.has(lang)) map.set(lang, []);
-    map.get(lang)!.push(c);
-  }
-  return Array.from(map.entries()).sort(([a], [b]) =>
-    a.localeCompare(b, undefined, { sensitivity: "base" }),
-  );
-}
-
 interface HomePageClientProps {
   initialCourses: CourseWithChapters[];
   isAdmin: boolean;
@@ -56,22 +44,9 @@ export default function HomePageClient({
   isAdmin,
   isAuthed,
 }: HomePageClientProps) {
-  const [expandedCourses, setExpandedCourses] = useState<Set<string>>(
-    new Set(),
-  );
   const [courses] = useState<CourseWithChapters[]>(initialCourses);
-
-  const grouped = groupByLanguage(courses);
-
-  const toggleCourseExpansion = (courseId: string) => {
-    const newExpanded = new Set(expandedCourses);
-    if (newExpanded.has(courseId)) {
-      newExpanded.delete(courseId);
-    } else {
-      newExpanded.add(courseId);
-    }
-    setExpandedCourses(newExpanded);
-  };
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const selectedCourse = courses.find((c) => c.id === selectedCourseId) || null;
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-12">
@@ -158,7 +133,7 @@ export default function HomePageClient({
       </section>
 
       {/* Empty state */}
-      {grouped.length === 0 && (
+      {courses.length === 0 && (
         <div className="bg-muted/40 rounded-xl border p-10 text-center">
           <p className="text-muted-foreground text-sm">
             No courses have been created yet.
@@ -178,163 +153,83 @@ export default function HomePageClient({
         </div>
       )}
 
-      {/* Expandable Course Sections */}
-      <div id="courses" className="mt-12 space-y-16">
-        {grouped.map(([language, courseList]) => (
-          <section key={language} className="scroll-mt-24">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">
-                  {language.charAt(0).toUpperCase() + language.slice(1)} Courses
-                </h2>
-              </div>
+      {/* Courses or Chapters */}
+      <div id="courses" className="mt-10">
+        {!selectedCourse ? (
+          <>
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold tracking-tight">Courses</h2>
             </div>
-
-            {courseList.map((course) => {
-              const isExpanded = expandedCourses.has(course.id);
-              const hasChapters = course.chapters.length > 0;
-
-              return (
-                <div key={course.id} className="mb-12">
-                  {/* Course Header */}
-                  <div
-                    className="group mb-4 flex cursor-pointer items-center justify-between"
-                    onClick={() =>
-                      hasChapters && toggleCourseExpansion(course.id)
-                    }
-                  >
-                    <div className="flex-1">
-                      <span className="sr-only">{course.title}</span>
-                      <p className="text-muted-foreground text-sm">
-                        {course.description || "No description available"}
-                      </p>
-                      {hasChapters && (
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          {course.chapters.length} chapter
-                          {course.chapters.length !== 1 ? "s" : ""} •
-                          {course.lessons.length} lesson
-                          {course.lessons.length !== 1 ? "s" : ""}
-                        </p>
-                      )}
-                    </div>
-                    <div className="ml-4 flex items-center gap-2">
-                      {!hasChapters && (
-                        <Link
-                          href={`/learn?course=${course.slug}`}
-                          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1 text-xs font-medium transition"
-                        >
-                          Start
-                        </Link>
-                      )}
-                      {hasChapters && (
-                        <>
-                          <span className="text-muted-foreground group-hover:text-foreground text-xs">
-                            {isExpanded ? "Hide chapters" : "Show chapters"}
-                          </span>
-                          {isExpanded ? (
-                            <ChevronUp
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                          ) : (
-                            <ChevronDown
-                              size={16}
-                              className="text-muted-foreground"
-                            />
-                          )}
-                        </>
-                      )}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {courses.map((course) => (
+                <div key={course.id} className="space-y-2">
+                  <CoursePosterCard
+                    slug={course.slug}
+                    title={course.title}
+                    language={course.language}
+                    description={course.description}
+                    coverImageUrl={course.poster}
+                    tagline={course.description}
+                    accentColor="#6366f1"
+                    ctaLabel="View chapters"
+                    onClick={() => setSelectedCourseId(course.id)}
+                  />
+                  <div className="px-0.5">
+                    <div className="text-sm font-medium leading-tight">{course.title}</div>
+                    <div className="text-muted-foreground text-xs">
+                      {course.chapters.length} chapter{course.chapters.length !== 1 ? "s" : ""}
+                      {" • "}
+                      {course.lessons.length} lesson{course.lessons.length !== 1 ? "s" : ""}
                     </div>
                   </div>
-
-                  {/* Course Poster (always visible) */}
-                  <div className="-mx-4 overflow-x-auto px-4 pb-2">
-                    <div className="flex gap-6">
-                      <div>
-                                              <div>
-                        <CoursePosterCard
-                          slug={course.slug}
-                          title={course.title}
-                          language={course.language}
-                          description={course.description}
-                          coverImageUrl={course.poster}
-                          tagline={course.description}
-                          accentColor="#6366f1"
-                          chapterCount={course.chapters.length}
-                          lessonCount={course.lessons.length}
-                          onClick={() =>
-                            hasChapters && toggleCourseExpansion(course.id)
-                          }
-                        />
-
-                      </div>
-                      </div>
-
-                      {/* Chapter Posters (only when expanded) */}
-                      {isExpanded &&
-                        course.chapters.map((chapter) => (
-                          <div key={chapter.id}>
-                            <ChapterPosterCard
-                              slug={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
-                              title={chapter.title}
-                              language={course.language}
-                              description={chapter.description}
-                              coverImageUrl={chapter.poster}
-                              tagline={chapter.description}
-                              lessonCount={chapter.lessons.length}
-                              onClick={() =>
-                                (window.location.href = `/learn?course=${course.slug}&chapter=${chapter.slug}`)
-                              }
-                            />
-
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  {/* Expanded Chapter Details */}
-                  {isExpanded && hasChapters && (
-                    <div className="mt-6 space-y-4">
-                      <h4 className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
-                        Chapters in this course
-                      </h4>
-                      <div className="space-y-3">
-                        {course.chapters.map((chapter, index) => (
-                          <div
-                            key={chapter.id}
-                            className="bg-muted/30 flex items-center justify-between rounded-lg border p-4"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium">
-                                {index + 1}
-                              </div>
-                              <div>
-                                <h5 className="font-medium">{chapter.title}</h5>
-                                {chapter.description && (
-                                  <p className="text-muted-foreground mt-1 text-sm">
-                                    {chapter.description}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <Link
-                              href={`/learn?course=${course.slug}&chapter=${chapter.slug}`}
-                              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition"
-                            >
-                              Start Chapter
-                            </Link>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-
                 </div>
-              );
-            })}
-          </section>
-        ))}
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight">{selectedCourse.title}</h2>
+                {selectedCourse.description && (
+                  <p className="text-muted-foreground text-sm">{selectedCourse.description}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedCourseId(null)}
+                className="hover:bg-accent rounded-md border px-3 py-1.5 text-xs font-medium"
+              >
+                Back to courses
+              </button>
+            </div>
+            {selectedCourse.chapters.length === 0 ? (
+              <div className="text-muted-foreground text-sm">This course has no chapters. Start now.</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {selectedCourse.chapters.map((chapter) => (
+                  <div key={chapter.id} className="space-y-2">
+                    <ChapterPosterCard
+                      slug={`/learn?course=${selectedCourse.slug}&chapter=${chapter.slug}`}
+                      title={chapter.title}
+                      language={selectedCourse.language}
+                      description={chapter.description}
+                      coverImageUrl={chapter.poster}
+                      tagline={chapter.description}
+                      lessonCount={chapter.lessons.length}
+                      onClick={() => (window.location.href = `/learn?course=${selectedCourse.slug}&chapter=${chapter.slug}`)}
+                    />
+                    <div className="px-0.5">
+                      <div className="text-sm font-medium leading-tight">{chapter.title}</div>
+                      <div className="text-muted-foreground text-xs">
+                        {chapter.lessons.length} lesson{chapter.lessons.length !== 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </main>
   );

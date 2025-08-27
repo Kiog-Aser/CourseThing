@@ -38,6 +38,7 @@ export interface CoursePosterCardProps {
   onClick?: () => void;
   chapterCount?: number;
   lessonCount?: number;
+  ctaLabel?: string | null;
 }
 
 const LANGUAGE_FLAGS: Record<string, string> = {
@@ -136,7 +137,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
   const cardContent = (
     <div
               className={cn(
-          "group focus-visible:ring-primary relative block w-[200px] shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+          "group focus-visible:ring-primary relative block w-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
           "cursor-pointer",
           className,
         )}
@@ -162,7 +163,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
             src={coverImageUrl}
             alt={title}
             fill
-            sizes="200px"
+            sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
             priority={false}
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
@@ -177,7 +178,7 @@ export function CoursePosterCard(props: CoursePosterCardProps) {
         {/* Hover button for course posters */}
         <div className="absolute inset-x-4 bottom-4 opacity-0 transition-all duration-300 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0">
           <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">
-            Start Course <ArrowRight size={14} />
+            {props.ctaLabel ?? "Start Course"} <ArrowRight size={14} />
           </span>
         </div>
       </div>

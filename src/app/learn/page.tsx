@@ -125,7 +125,14 @@ function renderJSON(
         if (!textOnly && !inner) {
           out.push(<p key={key} className="h-4" />);
         } else {
-          out.push(<p key={key}>{inner}</p>);
+          out.push(
+            <p
+              key={key}
+              className="mb-4 leading-relaxed whitespace-pre-wrap"
+            >
+              {inner}
+            </p>,
+          );
         }
         break;
       }
@@ -177,6 +184,9 @@ function renderJSON(
         break;
       case "horizontalRule":
         out.push(<hr key={key} className="my-6" />);
+        break;
+      case "hardBreak":
+        out.push(<br key={key} />);
         break;
       case "youtube": {
         const src: string | undefined =
