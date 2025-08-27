@@ -608,7 +608,7 @@ export default function LearnPage() {
     );
   }
 
-  // Check if this course is completely free (accessible to everyone)
+  // Check if this course is free (no CreatiFun subscription required)
   const isFreeCourse = course?.audience === 'FREE';
 
   const content = (<>
@@ -719,11 +719,12 @@ export default function LearnPage() {
                       // First lesson follows sidebar ordering
                       const isFirstLesson = !!firstLessonId && lesson.id === firstLessonId;
                       const isCustomer = session?.user?.creativeFunSubscription === true;
-                      // FREE courses: completely accessible, others: first lesson free, rest require login
-                      const locked = !isFreeCourse && !isFirstLesson && !isAuthed;
+                      // First lesson: free for everyone, other lessons: require login, premium courses also need subscription
+                      const locked = !isFirstLesson && (!isAuthed || (!isFreeCourse && !isCustomer));
 
                       // Determine lock reason for better UX
-                      const lockReason = locked ? 'auth' : null;
+                      const lockReason = !isAuthed ? 'auth' :
+                                       !isFreeCourse && !isCustomer ? 'subscription' : null;
                       const isCompleted = optimisticIds.includes(lesson.id);
 
                       return (
@@ -876,11 +877,12 @@ export default function LearnPage() {
               // First lesson follows sidebar ordering
               const isFirstLesson = !!firstLessonId && lesson.id === firstLessonId;
               const isCustomer = session?.user?.creativeFunSubscription === true;
-              // FREE courses: completely accessible, others: first lesson free, rest require login
-              const locked = !isFreeCourse && !isFirstLesson && !isAuthed;
+              // First lesson: free for everyone, other lessons: require login, premium courses also need subscription
+              const locked = !isFirstLesson && (!isAuthed || (!isFreeCourse && !isCustomer));
 
               // Determine lock reason for better UX
-              const lockReason = locked ? 'auth' : null;
+              const lockReason = !isAuthed ? 'auth' :
+                               !isFreeCourse && !isCustomer ? 'subscription' : null;
               const isCompleted = optimisticIds.includes(lesson.id);
 
               return (
@@ -1021,6 +1023,7 @@ export default function LearnPage() {
                 const isFirstLesson = !!firstLessonId && lesson.id === firstLessonId;
                 const isCustomer = session?.user?.creativeFunSubscription === true;
                 const needsAuth = !isAuthed;
+                const needsSubscription = isAuthed && !isFreeCourse && !isCustomer;
 
                 return (
                   <div className="flex min-h-[70vh] w-full items-center justify-center">
@@ -1028,39 +1031,63 @@ export default function LearnPage() {
                       <Lock className="text-muted-foreground h-12 w-12" />
                                               <div className="space-y-3">
                           <h2 className="text-xl font-semibold tracking-tight">
-                            Sign In Required
+                            {needsAuth ? "Sign In Required" : "CreatiFun Subscription Required"}
                           </h2>
                           <p className="text-muted-foreground text-sm leading-relaxed">
-                            You need to be signed in to access this course.
+                            {needsAuth
+                              ? "You need to be signed in to access this course."
+                              : "This premium content is exclusively available to CreatiFun subscribers. Subscribe to unlock access to all premium courses and exclusive content."
+                            }
                           </p>
                         </div>
                       <div className="flex flex-wrap items-center justify-center gap-3">
-                        <button
-                          onClick={() =>
-                            router.push(
-                              "/signup?callbackUrl=" +
-                                encodeURIComponent(
-                                  window.location.pathname + window.location.search,
-                                ),
-                            )
-                          }
-                          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
-                        >
-                          Create free account
-                        </button>
-                        <button
-                          onClick={() =>
-                            router.push(
-                              "/signin?callbackUrl=" +
-                                encodeURIComponent(
-                                  window.location.pathname + window.location.search,
-                                ),
-                            )
-                          }
-                          className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
-                        >
-                          Sign in
-                        </button>
+                        {needsAuth ? (
+                          <>
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  "/signup?callbackUrl=" +
+                                    encodeURIComponent(
+                                      window.location.pathname + window.location.search,
+                                    ),
+                                )
+                              }
+                              className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
+                            >
+                              Create free account
+                            </button>
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  "/signin?callbackUrl=" +
+                                    encodeURIComponent(
+                                      window.location.pathname + window.location.search,
+                                    ),
+                                )
+                              }
+                              className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
+                            >
+                              Sign in
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <a
+                              href="https://creati.fun"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium shadow hover:opacity-90"
+                            >
+                              Subscribe to CreatiFun
+                            </a>
+                            <a
+                              href="mailto:milloranh@gmail.com?subject=CreatiFun Support Request"
+                              className="hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
+                            >
+                              Contact Support
+                            </a>
+                          </>
+                        )}
                         <button
                           onClick={() => {
                             setLockedAttempt(null);
