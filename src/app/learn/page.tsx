@@ -176,7 +176,7 @@ function renderJSON(
         out.push(
           <pre
             key={key}
-            className="bg-muted rounded-md px-3 py-2 text-xs leading-snug"
+            className="bg-muted rounded-md px-3 py-2 text-xs leading-snug overflow-x-auto"
           >
             <code>{collectText(node)}</code>
           </pre>,
